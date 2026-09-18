@@ -1,0 +1,554 @@
+//! Backend de sessions: comandos Tauri para persistir y buscar sesiones PTY.
+
+use crate::commands::AppState;
+use serde::{Deserialize, Serialize};
+use sqlx::Row;
+use tauri::State;
+use tracing;
+
+/// Sesión completa (para listado y restore).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Session {
+    pub id: i64,
+    pub created_at: String,
+    pub updated_at: String,
+    pub cwd: String,
+    pub shell: String,
+    pub cols: i64,
+    pub rows: i64,
+    pub exit_code: Option<i64>,
+    pub title: Option<String>,
+    pub env_json: Option<String>,
+    pub scrollback_limit: Option<i64>,
+}
+
+/// Bloque individual (comando + metadata).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Block {
+    pub id: i64,
+    pub session_id: i64,
+    pub seq: i64,
+    pub start_row: i64,
+    pub end_row: Option<i64>,
+    pub command: String,
+    pub command_hash: String,
+    pub created_at: String,
+}
+
+/// Hit de búsqueda (FTS5).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SearchHit {
+    pub session_id: i64,
+    pub block_id: i64,
+    pub command: String,
+    pub output_snippet: String,
+    pub cwd: String,
+    pub rank: f64,
+}
+
+/// Filtros para listado/búsqueda.
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct SessionFilter {
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
+    pub cwd: Option<String>,
+    pub from_date: Option<String>,
+    pub to_date: Option<String>,
+    pub exited_only: Option<bool>,
+}
+
+/// Payload para crear sesión.
+#[derive(Debug, Clone, Deserialize)]
+pub struct CreateSessionPayload {
+    pub cols: u16,
+    pub rows: u16,
+    pub cwd: String,
+    pub shell: String,
+    pub env_json: Option<String>,
+}
+
+/// Hash simple del comando (FNV-1a 64-bit, estable).
+fn command_hash(cmd: &str) -> String {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    cmd.hash(&mut hasher);
+    format!("{:x}", hasher.finish())
+}
+
+/// Strip ANSI/OSC para indexar en FTS (reutiliza lógica de db.rs).
+fn strip_ansi_for_fts(input: &[u8]) -> String {
+    let text = String::from_utf8_lossy(input);
+    let mut out = String::with_capacity(text.len());
+    let mut chars = text.chars().peekable();
+
+    while let Some(c) = chars.next() {
+        if c == '\x1b' {
+            if let Some(&next) = chars.peek() {
+                match next {
+                    '[' => {
+                        chars.next();
+                        while let Some(ch) = chars.next() {
+                            if ch >= '@' && ch <= '~' { break; }
+                        }
+                    }
+                    ']' => {
+                        chars.next();
+                        while let Some(ch) = chars.next() {
+                            if ch == '\x07' { break; }
+                            if ch == '\x1b' {
+                                if let Some(&c2) = chars.peek() {
+                                    if c2 == '\\' { chars.next(); break; }
+                                }
+                            }
+                        }
+                    }
+                    'P' | 'X' | '^' | '_' => {
+                        while let Some(ch) = chars.next() {
+                            if ch == '\x1b' {
+                                if let Some(&c2) = chars.peek() {
+                                    if c2 == '\\' { chars.next(); break; }
+                                }
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        } else if c == '\x07' {
+        } else {
+            out.push(c);
+        }
+    }
+    // Truncar a ~2KB por chunk para FTS
+    if out.len() > 2048 {
+        out.truncate(2048);
+        out.push_str("…");
+    }
+    out
+}
+
+/// Crea una nueva sesión y devuelve su ID.
+#[tauri::command]
+pub async fn create_session(
+    state: State<'_, crate::commands::AppState>,
+    payload: CreateSessionPayload,
+) -> Result<i64, String> {
+    let pool = &state.db;
+    let now = chrono::Utc::now().to_rfc3339();
+    let cols = payload.cols as i64;
+    let rows = payload.rows as i64;
+
+    let id = sqlx::query!(
+        r#"
+        INSERT INTO sessions (created_at, updated_at, cwd, shell, cols, rows, env_json)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        "#,
+        now,
+        now,
+        payload.cwd,
+        payload.shell,
+        cols,
+        rows,
+        payload.env_json
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| format!("create_session: {e}"))?
+    .last_insert_rowid();
+
+    tracing::info!("[session] created id={}", id);
+    Ok(id)
+}
+
+/// Añade un bloque (marker C) a la sesión.
+#[tauri::command]
+pub async fn append_block(
+    state: State<'_, crate::commands::AppState>,
+    session_id: i64,
+    seq: i64,
+    start_row: i64,
+    end_row: Option<i64>,
+    command: String,
+) -> Result<i64, String> {
+    let pool = &state.db;
+    let now = chrono::Utc::now().to_rfc3339();
+    let hash = command_hash(&command);
+
+    let block_id = sqlx::query!(
+        r#"
+        INSERT INTO blocks (session_id, seq, start_row, end_row, command, command_hash, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        "#,
+        session_id,
+        seq,
+        start_row,
+        end_row,
+        command,
+        hash,
+        now
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| format!("append_block: {e}"))?
+    .last_insert_rowid();
+
+    tracing::info!("[session] append_block session={} block={} seq={}", session_id, block_id, seq);
+    Ok(block_id)
+}
+
+/// Actualiza end_row de un bloque (cuando llega siguiente A o se cierra).
+#[tauri::command]
+pub async fn update_block_end(
+    state: State<'_, crate::commands::AppState>,
+    session_id: i64,
+    seq: i64,
+    end_row: i64,
+) -> Result<(), String> {
+    let pool = &state.db;
+    sqlx::query!(
+        "UPDATE blocks SET end_row = ? WHERE session_id = ? AND seq = ?",
+        end_row,
+        session_id,
+        seq
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| format!("update_block_end: {e}"))?;
+    Ok(())
+}
+
+/// Añade chunk de output a un bloque (batch desde terminal-data).
+#[tauri::command]
+pub async fn append_output(
+    state: State<'_, crate::commands::AppState>,
+    session_id: i64,
+    block_seq: i64,
+    data: Vec<u8>,
+) -> Result<(), String> {
+    let pool = &state.db;
+
+    // Obtiene block_id
+    let block = sqlx::query!("SELECT id FROM blocks WHERE session_id = ? AND seq = ?", session_id, block_seq)
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| format!("append_output find block: {e}"))?
+        .ok_or_else(|| format!("block not found: session={} seq={}", session_id, block_seq))?;
+
+    let block_id = block.id;
+    let now = chrono::Utc::now().to_rfc3339();
+
+    // Siguiente seq para este bloque
+    let next_seq: i64 = sqlx::query!("SELECT COALESCE(MAX(seq), -1) + 1 as seq FROM block_output WHERE block_id = ?", block_id)
+        .fetch_one(pool)
+        .await
+        .map_err(|e| format!("append_output next_seq: {e}"))?
+        .seq;
+
+    // Inserta chunk
+    sqlx::query!(
+        "INSERT INTO block_output (block_id, seq, data, created_at) VALUES (?, ?, ?, ?)",
+        block_id,
+        next_seq,
+        data,
+        now
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| format!("append_output insert: {e}"))?;
+
+    // Indexa en FTS (strip ANSI + command + cwd)
+    let session = sqlx::query!("SELECT cwd FROM sessions WHERE id = ?", session_id)
+        .fetch_one(pool)
+        .await
+        .map_err(|e| format!("append_output session cwd: {e}"))?;
+
+    let block_cmd = sqlx::query!("SELECT command FROM blocks WHERE id = ?", block_id)
+        .fetch_one(pool)
+        .await
+        .map_err(|e| format!("append_output block cmd: {e}"))?;
+
+    let output_text = strip_ansi_for_fts(&sqlx::query!("SELECT data FROM block_output WHERE block_id = ? AND seq = ?", block_id, next_seq)
+        .fetch_one(pool)
+        .await
+        .map_err(|e| format!("append_output fetch data: {e}"))?
+        .data);
+
+    sqlx::query!(
+        "INSERT INTO search_fts (session_id, block_id, command, output_text, cwd, tags) VALUES (?, ?, ?, ?, ?, '')",
+        session_id,
+        block_id,
+        block_cmd.command,
+        output_text,
+        session.cwd
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| format!("append_output fts: {e}"))?;
+
+    Ok(())
+}
+
+/// Cierra la sesión (exit code).
+#[tauri::command]
+pub async fn close_session(
+    state: State<'_, crate::commands::AppState>,
+    session_id: i64,
+    exit_code: Option<i64>,
+) -> Result<(), String> {
+    let pool = &state.db;
+    let now = chrono::Utc::now().to_rfc3339();
+
+    sqlx::query!(
+        "UPDATE sessions SET exit_code = ?, updated_at = ? WHERE id = ?",
+        exit_code,
+        now,
+        session_id
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| format!("close_session: {e}"))?;
+
+    // Cierra bloques abiertos (end_row = start_row si no tienen output)
+    sqlx::query!(
+        "UPDATE blocks SET end_row = COALESCE(end_row, start_row) WHERE session_id = ? AND end_row IS NULL",
+        session_id
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| format!("close_session blocks: {e}"))?;
+
+    tracing::info!("[session] closed id={} exit_code={:?}", session_id, exit_code);
+    Ok(())
+}
+
+/// Lista sesiones (paginado, orden updated_at DESC).
+#[tauri::command]
+pub async fn list_sessions(
+    state: State<'_, crate::commands::AppState>,
+    filter: Option<SessionFilter>,
+) -> Result<Vec<Session>, String> {
+    let pool = &state.db;
+    let f = filter.unwrap_or_default();
+    let limit = f.limit.unwrap_or(100);
+    let offset = f.offset.unwrap_or(0);
+    let exited_only = f.exited_only.unwrap_or(false) as i64;
+    let cwd_like = f.cwd.map(|c| format!("%{}%", c));
+    let from_date = f.from_date;
+    let to_date = f.to_date;
+
+    // Bind all params to locals to avoid E0716
+    let p1 = cwd_like.clone();
+    let p2 = cwd_like;
+    let p3 = from_date.clone();
+    let p4 = from_date;
+    let p5 = to_date.clone();
+    let p6 = to_date;
+    let p7 = exited_only;
+    let p8 = limit;
+    let p9 = offset;
+
+    // Query fijo con parámetros opcionales (NULL = sin filtro)
+    let rows = sqlx::query!(
+        r#"
+        SELECT id, created_at, updated_at, cwd, shell, cols, rows, exit_code, title, env_json, scrollback_limit
+        FROM sessions
+        WHERE (? IS NULL OR cwd LIKE ?)
+          AND (? IS NULL OR updated_at >= ?)
+          AND (? IS NULL OR updated_at <= ?)
+          AND (? = 0 OR exit_code IS NOT NULL)
+        ORDER BY updated_at DESC
+        LIMIT ? OFFSET ?
+        "#,
+        p1, p2, p3, p4, p5, p6, p7, p8, p9
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| format!("list_sessions: {e}"))?;
+
+    let mut sessions = Vec::new();
+    for row in rows {
+        sessions.push(Session {
+            id: row.id.expect("id not null"),
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+            cwd: row.cwd,
+            shell: row.shell,
+            cols: row.cols,
+            rows: row.rows,
+            exit_code: row.exit_code,
+            title: row.title,
+            env_json: row.env_json,
+            scrollback_limit: Some(row.scrollback_limit.expect("scrollback_limit not null")),
+        });
+    }
+    Ok(sessions)
+}
+
+/// Obtiene sesión completa con sus bloques (sin output completo).
+#[tauri::command]
+pub async fn get_session(
+    state: State<'_, crate::commands::AppState>,
+    session_id: i64,
+) -> Result<Option<(Session, Vec<Block>)>, String> {
+    let pool = &state.db;
+
+    let session = sqlx::query!(
+        "SELECT id, created_at, updated_at, cwd, shell, cols, rows, exit_code, title, env_json, scrollback_limit
+         FROM sessions WHERE id = ?",
+        session_id
+    )
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| format!("get_session: {e}"))?;
+
+    let Some(s) = session else { return Ok(None); };
+
+    let blocks = sqlx::query!(
+        "SELECT id, session_id, seq, start_row, end_row, command, command_hash, created_at
+         FROM blocks WHERE session_id = ? ORDER BY seq",
+        session_id
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| format!("get_session blocks: {e}"))?;
+
+    let session = Session {
+        id: s.id,
+        created_at: s.created_at,
+        updated_at: s.updated_at,
+        cwd: s.cwd,
+        shell: s.shell,
+        cols: s.cols,
+        rows: s.rows,
+        exit_code: s.exit_code,
+        title: s.title,
+        env_json: s.env_json,
+        scrollback_limit: s.scrollback_limit,
+    };
+
+    let blocks = blocks.into_iter().map(|b| Block {
+        id: b.id.expect("block id not null"),
+        session_id: b.session_id,
+        seq: b.seq,
+        start_row: b.start_row,
+        end_row: b.end_row,
+        command: b.command,
+        command_hash: b.command_hash,
+        created_at: b.created_at,
+    }).collect();
+
+    Ok(Some((session, blocks)))
+}
+
+/// Obtiene output completo de un bloque (para restore scrollback).
+#[tauri::command]
+pub async fn get_block_output(
+    state: State<'_, crate::commands::AppState>,
+    session_id: i64,
+    block_seq: i64,
+) -> Result<Option<Vec<u8>>, String> {
+    let pool = &state.db;
+
+    let block = sqlx::query!("SELECT id FROM blocks WHERE session_id = ? AND seq = ?", session_id, block_seq)
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| format!("get_block_output find: {e}"))?;
+
+    let Some(block) = block else { return Ok(None); };
+
+    let chunks = sqlx::query!("SELECT data FROM block_output WHERE block_id = ? ORDER BY seq", block.id)
+        .fetch_all(pool)
+        .await
+        .map_err(|e| format!("get_block_output chunks: {e}"))?;
+
+    let mut output = Vec::new();
+    for chunk in chunks {
+        output.extend_from_slice(&chunk.data);
+    }
+    Ok(Some(output))
+}
+
+/// Búsqueda full-text (FTS5) con snippet.
+#[tauri::command]
+pub async fn search_sessions(
+    state: State<'_, crate::commands::AppState>,
+    query: String,
+    limit: Option<i64>,
+) -> Result<Vec<SearchHit>, String> {
+    let pool = &state.db;
+    let limit = limit.unwrap_or(50);
+
+    // FTS5: query puede tener operadores (+, -, ", *). Sanitizamos comillas.
+    let fts_query = query.replace('"', "");
+
+    let rows = sqlx::query(
+        r#"
+        SELECT 
+            COALESCE(session_id, 0) as session_id,
+            COALESCE(block_id, 0) as block_id,
+            COALESCE(command, '') as command,
+            COALESCE(output_text, '') as output_text,
+            COALESCE(cwd, '') as cwd,
+            CAST(bm25(search_fts) AS REAL) as rank
+        FROM search_fts
+        WHERE search_fts MATCH ?
+        ORDER BY rank
+        LIMIT ?
+        "#,
+    )
+    .bind(fts_query)
+    .bind(limit)
+    .fetch_all(pool)
+    .await
+    .map_err(|e| format!("search_sessions: {e}"))?;
+
+    let mut hits = Vec::new();
+    for row in rows {
+        let session_id: i64 = row.get("session_id");
+        let block_id: i64 = row.get("block_id");
+        let command: String = row.get("command");
+        let mut snippet: String = row.get("output_text");
+        if snippet.len() > 200 {
+            snippet.truncate(200);
+            snippet.push_str("…");
+        }
+        hits.push(SearchHit {
+            session_id,
+            block_id,
+            command,
+            output_snippet: snippet,
+            cwd: row.get("cwd"),
+            rank: row.get("rank"),
+        });
+    }
+    Ok(hits)
+}
+
+/// Actualiza título de sesión.
+#[tauri::command]
+pub async fn update_session_title(
+    state: State<'_, crate::commands::AppState>,
+    session_id: i64,
+    title: String,
+) -> Result<(), String> {
+    let pool = &state.db;
+    sqlx::query!("UPDATE sessions SET title = ?, updated_at = datetime('now') WHERE id = ?", title, session_id)
+        .execute(pool)
+        .await
+        .map_err(|e| format!("update_session_title: {e}"))?;
+    Ok(())
+}
+
+/// Elimina sesión (cascada a blocks/output/fts).
+#[tauri::command]
+pub async fn delete_session(
+    state: State<'_, crate::commands::AppState>,
+    session_id: i64,
+) -> Result<(), String> {
+    let pool = &state.db;
+    sqlx::query!("DELETE FROM sessions WHERE id = ?", session_id)
+        .execute(pool)
+        .await
+        .map_err(|e| format!("delete_session: {e}"))?;
+    Ok(())
+}

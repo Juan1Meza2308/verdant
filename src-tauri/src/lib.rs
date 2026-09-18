@@ -2,6 +2,7 @@ mod commands;
 mod config;
 mod db;
 mod pty;
+mod sessions;
 mod snippets;
 
 use commands::AppState;
@@ -35,7 +36,18 @@ pub fn run() {
             commands::get_config,
             commands::debug_log,
             snippets::get_snippets,
-            snippets::get_cwd
+            snippets::get_cwd,
+            sessions::create_session,
+            sessions::append_block,
+            sessions::update_block_end,
+            sessions::append_output,
+            sessions::close_session,
+            sessions::list_sessions,
+            sessions::get_session,
+            sessions::get_block_output,
+            sessions::search_sessions,
+            sessions::update_session_title,
+            sessions::delete_session
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

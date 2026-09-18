@@ -1,10 +1,6 @@
 -- 001_initial_schema.sql
 -- Esquema inicial para sessions persistentes + búsqueda FTS5
-
-PRAGMA foreign_keys = ON;
-PRAGMA journal_mode = WAL;
-PRAGMA synchronous = NORMAL;
-PRAGMA busy_timeout = 5000;
+-- PRAGMAs se configuran en db.rs via connection options (no en transacción)
 
 -- Tabla de sesiones
 CREATE TABLE sessions (

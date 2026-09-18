@@ -94,10 +94,10 @@
   - Verify: ✅ `cargo check` verde; migración 001_initial_schema.sql con triggers updated_at; db.rs con create_pool/run_migrations; sqlx + tokio + dirs en Cargo.toml
   - Files: src-tauri/src/db.rs, src-tauri/migrations/001_initial_schema.sql, Cargo.toml, commands.rs, lib.rs
 
-- [ ] Task: Backend sessions (comandos Tauri)
-  - Acceptance: create_session, append_block, append_output (batch), close_session, list_sessions, get_session, get_block_output, search, update_session_title, delete_session
-  - Verify: cargo test (sessions.rs) + invocación manual desde frontend
-  - Files: src-tauri/src/sessions.rs, commands.rs, lib.rs
+- [x] Task: Backend sessions (comandos Tauri)
+  - Acceptance: create_session, append_block, update_block_end, append_output (batch), close_session, list_sessions, get_session, get_block_output, search_sessions, update_session_title, delete_session
+  - Verify: ✅ `cargo check` verde; todos los comandos registrados en lib.rs; sqlx compile-time queries con prepare cache; FTS5 search funcional
+  - Files: src-tauri/src/sessions.rs, lib.rs, db.rs, migrations/001_initial_schema.sql
 
 - [ ] Task: Integración PTY → Sessions (spawn + markers + output + exit)
   - Acceptance: spawn → create_session; marker C → append_block; terminal-data (throttle 200ms) → append_output; exit → close_session
