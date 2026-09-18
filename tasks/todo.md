@@ -23,9 +23,9 @@
 
 ## Fase 1: desktop-shell (en curso)
 
-- [ ] Task: Gestor de tabs (barra superior, crear/cerrar/renombrar; 1 tab = 1 sesión PTY)
+- [x] Task: Gestor de tabs (barra superior, crear/cerrar/renombrar; 1 tab = 1 sesión PTY)
   - Acceptance: Ctrl+Shift+T abre tab nueva con shell; Ctrl+Shift+W cierra; renombrar por doble click
-  - Verify: manual en `npm run tauri dev`
+  - Verify: probado por Felipe (tabs 4→9→3 con W W W, sin incidencias)
   - Files: src/components/TabBar.tsx, App.tsx, TerminalPane.tsx, pty.rs (sin cambio, multi-sesión ya soportado)
 - [x] Task: Keybinds base configurables
   - Acceptance: atajos desde config (tabs, buscar); engine propio en lib/keybinds.ts
@@ -48,7 +48,45 @@
   - Verify: uso real por Felipe
   - Files: —
 
-## Fase 2: blocks (pendiente)
+## Fase 2: blocks (en curso — spec en SPEC-blocks.md)
+
+- [ ] Task: Integración shell fish (OSC 133)
+  - Acceptance: `~/.config/fish/conf.d/verdant.fish` emite `\e]133;A` en fish_prompt, `\e]133;B;cmd=<base64>` en fish_preexec (commandline), `\e]133;C` en fish_postexec; guard para línea vacía
+  - Verify: stream del PTY muestra los marcadores y el payload base64 decodifica al comando crudo (con acentos)
+  - Files: packaging/fish/verdant.fish (canónico en repo, copia a conf.d)
+- [ ] Task: Parser OSC 133 (lib puro)
+  - Acceptance: `segmentOsc133(chunk)` → segmentos `{text, marker?, payload?}`; soporta BEL y ST; texto mezclado intacto; falsos positivos (`echo "\e]133;A"`) no rompen el stream
+  - Verify: vitest (osc133.test.ts)
+  - Files: src/lib/osc133.ts
+- [ ] Task: Modelo de bloques (lib puro)
+  - Acceptance: builder por marcadores (A abre, B fija command, C cierra con endRow); huérfanos ignorados; bloques del final abiertos
+  - Verify: vitest (blocks.test.ts)
+  - Files: src/lib/blocks.ts
+- [ ] Task: Integración stream→modelo en TerminalPane
+  - Acceptance: los marcadores se eliminan antes de `write` (xterm nunca los ve); escrituras serializadas con callbacks (row exacta en cada marcador); cola de marcadores pendientes
+  - Verify: manual (comandos corridos → bloques en modelo, docs log) + sin regresión TUI (btop/nvim)
+  - Files: src/components/TerminalPane.tsx
+- [ ] Task: Overlay visual de bloques (decorations)
+  - Acceptance: fondo sutil por bloque en viewport (layer bottom) + contorno del activo (layer top); sólo bloques visibles/adyacentes pintados; scroll automático con decorations; `pointer-events: none`
+  - Verify: manual con wtype: 3 comandos → 3 bloques visibles; scroll no descoloca fondos
+  - Files: src/components/TerminalPane.tsx o src/components/BlockOverlay.tsx
+- [ ] Task: Navegación y acciones de bloque
+  - Acceptance: block-prev/next (Ctrl+Shift+↑/↓) seleccionan y scrollean al inicio; block-rerun (Ctrl+Shift+R) re-envía el comando vía paste; block-copy (Ctrl+Shift+Y) copia el comando (wl-paste verificable)
+  - Verify: manual end-to-end con wtype (rerun: `echo … >> archivo`)
+  - Files: src/lib/keybinds.ts, config.rs (DEFAULT_KEYBINDS + template), TerminalPane.tsx
+- [ ] Task: Snippets backend
+  - Acceptance: comando Tauri `get_snippets` lee `~/.config/verdant/snippets.jsonc` (json5), crea default si falta, error controlado si inválido
+  - Verify: cargo test (snippets.rs)
+  - Files: src-tauri/src/snippets.rs, commands.rs, lib.rs
+- [ ] Task: Snippets frontend (lib + overlay)
+  - Acceptance: caché singleton; `resolveSnippet` sustituye `{{var}}` / `{{var:default}}`; overlay por pane (Ctrl+Shift+S): lista, flechas, Enter; con variables muestra campos; Escape cierra; inserta vía term.paste
+  - Verify: vitest (snippets.test.ts) + manual (cat > archivo recibe el snippet resuelto)
+  - Files: src/lib/snippets.ts, src/components/SnippetOverlay.tsx, TerminalPane.tsx
+- [ ] Task: Criterio de salida Fase 2
+  - Acceptance: los 6 success criteria de SPEC-blocks.md (bloques navegables, rerun, copy, snippets con variables, TUI intactas, tests verdes)
+  - Verify: uso real por Felipe
+
+## Fase 3: sessions (pendiente)
 ## Fase 3: sessions (pendiente)
 ## Fase 4: theming ryoku (pendiente)
 ## Fase 5: ai opencode (pendiente)
