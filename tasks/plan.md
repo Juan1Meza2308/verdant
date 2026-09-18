@@ -24,7 +24,7 @@ Spec de referencia: `SPEC-blocks.md`. Orden de trabajo por dependencias; cada pa
 
 ## Decisiones de diseño
 
-- **Texto del comando**: lo aporta fish en el payload de B (base64 de `commandline`), no el buffer. Cero heurísticas; respeta aliases para el re-run.
+- **Texto del comando**: lo aporta fish de forma nativa (≥ 4) en el payload `cmdline_url=` del marcador C (percent-encoded), no el buffer. Cero heurísticas; respeta aliases para el re-run. `packaging/fish/verdant.fish` queda como fallback para fish < 4.
 - **Serialización de escrituras**: `terminal.write(segmento, cb)` en cadena; el cb corre al terminar de parsear → la fila leída justo después de cada marcador es exacta. Cola de marcadores pendientes para casos sin texto entre marcadores.
 - **Overlay**: `registerDecoration` con layers bottom/top (xterm gestiona scroll); alto por bloque = filas × `cellHeight` medido del DOM (`.xterm-rows > div`).
 - **Snippets**: archivo json5 config-like (SQLite en Fase 3); caché singleton para un solo invoke.

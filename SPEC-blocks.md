@@ -24,15 +24,15 @@ Fuera de scope Fase 2: persistencia en disco, búsqueda global, attach híbrido 
 
 ### 1. Integración shell (fish)
 
-`~/.config/fish/conf.d/verdant.fish` — emitido por eventos de fish:
+fish ≥ 4 emite los marcadores OSC 133 **de forma nativa** (verificado en fish 4.9.3, también con `TERM=xterm-256color`). No se instala ningún archivo en la config del usuario.
 
 | Marcador | Cuándo | Payload |
 |---|---|---|
-| `\e]133;A\a` | `fish_prompt` (inicio de prompt) | — |
-| `\e]133;B;cmd=<base64>\a` | `fish_preexec` (antes de ejecutar) | comando crudo tal como se tecleó, en base64 |
-| `\e]133;C\a` | `fish_postexec` (tras completar) | — |
+| `\e]133;A` (a veces con `;click_events=1`) | `fish_prompt` (inicio de prompt) | — (se ignora) |
+| `\e]133;B` | `fish_preexec` (antes de ejecutar) | — |
+| `\e]133;C;cmdline_url=<url-encoded>` | `fish_postexec` (tras completar) | comando crudo URL-encoded (espacio `%20`, UTF-8 `%C3%A1`…) |
 
-`commandline` (sin args) devuelve la línea cruda → se conservan aliases y pipeline para el re-run. Base64 tolera cualquier carácter en el comando. Guard: no emitir `B` si la línea está vacía.
+El comando se recupera de `C;cmdline_url=` con `decodeURIComponent`: línea cruda tal como se tecleó → aliases y pipeline intactos para el re-run. **Fallback para fish < 4** (opcional, NO instalado por defecto): `packaging/fish/verdant.fish` emite `B;cmd=<base64>`.
 
 ### 2. Parser del stream (frontend)
 
@@ -55,8 +55,8 @@ interface Block {
 ```
 
 - `A` → cierra el bloque anterior (endRow = fila actual − 1 si no llegó `C`), abre uno nuevo con `startRow = fila actual`, `command = ""`.
-- `B` → `command = decodeBase64(payload)`.
-- `C` → cierra el bloque actual: `endRow = fila actual`.
+- `B` → sin payload (marca el inicio de la ejecución).
+- `C` → `command = decodeCommandPayload(payload)` (`cmdline_url=` → percent-decode; `cmd=` → base64 del fallback) y `endRow = fila actual`.
 - Bloques huérfanos (marcador dañado) se ignoran silenciosamente; el terminal nunca se degrada.
 
 ### 4. Overlay visual
@@ -114,7 +114,7 @@ src/components/TerminalPane.tsx → integración stream→segmentos, overlay, ac
 src/components/SnippetOverlay.tsx → overlay de snippets (forme parte de TerminalPane)
 src-tauri/src/snippets.rs → get_snippets (carga json5 + defaults)  + tests
 src-tauri/src/config.rs  → DEFAULT_KEYBINDS + template (5 nuevas acciones)
-~/.config/fish/conf.d/verdant.fish → integración (generada por setup; se documenta en README)
+packaging/fish/verdant.fish → fallback opcional (fish < 4); NO se instala por defecto
 ```
 
 ## Code Style
@@ -135,7 +135,7 @@ TS estricto, sin `any`/`ts-ignore`. Constantes semánticas (`BLOCK_MARKER_RE`…
 
 ## Success Criteria (salida Fase 2)
 
-1. Integración fish instalada; tras ejecutar comandos se ven bloques delimitados y se navega con `Ctrl+Shift+↑/↓` saltando al inicio de cada bloque.
+1. Marcadores nativos de fish ≥ 4 activos; tras ejecutar comandos se ven bloques delimitados y se navega con `Ctrl+Shift+↑/↓` saltando al inicio de cada bloque.
 2. `Ctrl+Shift+R` re-ejecuta el comando del bloque seleccionado sin importar qué haya en el prompt actual.
 3. `Ctrl+Shift+Y` copia el comando del bloque → verificado con `wl-paste`.
 4. `Ctrl+Shift+S` abre snippets; el snippet con `{{var}}` pide valor y lo inserta resuelto en el shell (verificado: texto llega a un `cat > archivo`).

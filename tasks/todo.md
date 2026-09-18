@@ -50,10 +50,10 @@
 
 ## Fase 2: blocks (en curso — spec en SPEC-blocks.md)
 
-- [ ] Task: Integración shell fish (OSC 133)
-  - Acceptance: `~/.config/fish/conf.d/verdant.fish` emite `\e]133;A` en fish_prompt, `\e]133;B;cmd=<base64>` en fish_preexec (commandline), `\e]133;C` en fish_postexec; guard para línea vacía
-  - Verify: stream del PTY muestra los marcadores y el payload base64 decodifica al comando crudo (con acentos)
-  - Files: packaging/fish/verdant.fish (canónico en repo, copia a conf.d)
+- [x] Task: Integración shell fish (OSC 133) — nativa
+  - Acceptance: fish ≥ 4 emite `A`, `B`, `C;cmdline_url=<comando url-encoded>` sin tocar config de usuario; conf.d solo como fallback opcional para fish < 4
+  - Verify: ✅ fish 4.9.3 con TERM=xterm-256color: A;click_events=1 → B → C;cmdline_url=echo%20%22saludo…%22
+  - Files: packaging/fish/verdant.fish (fallback opcional, no instalado)
 - [ ] Task: Parser OSC 133 (lib puro)
   - Acceptance: `segmentOsc133(chunk)` → segmentos `{text, marker?, payload?}`; soporta BEL y ST; texto mezclado intacto; falsos positivos (`echo "\e]133;A"`) no rompen el stream
   - Verify: vitest (osc133.test.ts)
