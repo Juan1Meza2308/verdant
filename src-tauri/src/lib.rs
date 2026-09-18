@@ -20,7 +20,8 @@ pub fn run() {
             commands::write_to_pty,
             commands::resize_terminal,
             commands::close_terminal,
-            commands::get_config
+            commands::get_config,
+            commands::debug_log
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

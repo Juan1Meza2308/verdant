@@ -60,3 +60,10 @@ pub fn close_terminal(state: State<AppState>, id: u32) -> Result<(), String> {
 pub fn get_config(state: State<AppState>) -> Config {
     (*state.config).clone()
 }
+
+/// Log de depuración del frontend (solo diagnóstico; se elimina en su momento).
+#[tauri::command]
+pub fn debug_log(msg: String) -> Result<(), String> {
+    eprintln!("[verdant:web] {}", msg);
+    Ok(())
+}

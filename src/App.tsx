@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { TerminalPane, type VerdantConfig } from "./components/TerminalPane";
 import { TabBar, type Tab } from "./components/TabBar";
 import { dispatchAction } from "./lib/actions";
-import { comboMatches, parseCombo } from "./lib/keybinds";
+import { comboMatches, parseCombo, type KeyCombo } from "./lib/keybinds";
 import "./App.css";
 
 function App() {
@@ -59,12 +59,12 @@ function App() {
   // Listener global de keybinds (captura antes de xterm).
   useEffect(() => {
     if (!config) return;
-    const bindings: Array<{ combo: ReturnType<typeof parseCombo>; action: () => void }> = [];
+    const bindings: Array<{ actionName: string; combo: KeyCombo; action: () => void }> = [];
     const bind = (actionName: string, action: () => void) => {
       const spec = config.keybinds[actionName];
       if (!spec) return;
       const combo = parseCombo(spec);
-      if (combo) bindings.push({ combo, action });
+      if (combo) bindings.push({ actionName, combo, action });
     };
     bind("tab-new", createTab);
     bind("tab-close", () => closeTab(activeTab));
@@ -72,13 +72,31 @@ function App() {
     bind("tab-prev", () => cycleTab(-1));
     bind("search", () => dispatchAction("search"));
 
+    if (bindings.length > 0) {
+      void invoke("debug_log", {
+        msg: `[binds] ${bindings.map((b) => `${b.actionName}=${config.keybinds[b.actionName]}`).join(" | ")}`,
+      });
+    } else {
+      void invoke("debug_log", { msg: "[binds] NINGUNA acción consultable" });
+    }
+
     const handler = (event: KeyboardEvent) => {
       // No interceptar mientras se renombra una tab o se escribe en el buscador
       // (xterm usa un <textarea> propio; por eso NO filtramos por tagName acá).
       const target = event.target as HTMLElement | null;
       if (target && target.closest(".tab-rename, .search-input")) return;
+
+      if (event.ctrlKey || event.altKey || event.shiftKey || event.metaKey) {
+        void invoke("debug_log", {
+          msg: `key=${event.key} code=${event.code} ctrl=${event.ctrlKey} alt=${event.altKey} shift=${event.shiftKey} meta=${event.metaKey} target=${target?.tagName ?? "window"}${target?.className ? ` class=${target.className}` : ""}`,
+        });
+      }
+
       for (const binding of bindings) {
         if (binding.combo && comboMatches(event, binding.combo)) {
+          void invoke("debug_log", {
+            msg: `action=${binding.actionName} combo=${binding.combo.key}`,
+          });
           event.preventDefault();
           event.stopPropagation();
           binding.action();
