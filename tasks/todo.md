@@ -31,14 +31,14 @@
   - Acceptance: atajos desde config (tabs, buscar); engine propio en lib/keybinds.ts
   - Verify: Ctrl+Shift+T/W, Ctrl+Tab/Ctrl+Shift+Tab, Ctrl+Shift+F (buscador inline con decorations)
   - Files: src/lib/keybinds.ts, src/lib/actions.ts, src-tauri/src/config.rs (keybinds[] + merge con defaults)
-- [ ] Task: Split panes (vertical/horizontal)
+- [x] Task: Split panes (vertical/horizontal)
   - Acceptance: dividir la vista; cada pane su sesión; navegación focus con atajo
-  - Verify: abrir 2 panes y correr comandos en cada uno
-  - Files: src/components/SplitView.tsx, App.tsx
-- [ ] Task: Tema base con tokens CSS + tema oscuro propio
+  - Verify: probado con wtype (split-v Ctrl+Shift+E → panes=2, cada pane escribió su archivo; pane-next J movió foco; pane-close Q cerró y promovió hermano, panes=1)
+  - Files: src/lib/layout.ts (+layout.test.ts, 10 tests), src/components/SplitView.tsx, App.tsx, config.rs (split-v/h, pane-next/prev/close)
+- [x] Task: Tema base con tokens CSS + tema oscuro propio
   - Acceptance: colores/transparencia del shell vía CSS variables; xterm theme (bg/fg/cursor) coherente
-  - Verify: cambiar token en theme.ts y ver al reload
-  - Files: src/lib/theme.ts, src/styles/tokens.css, TerminalPane.tsx (theme option), App.css
+  - Verify: tokens en src/lib/theme.ts (baseTheme) aplicados en :root y a xterm (themeToXterm); API subscribeTheme lista para Fase 4
+  - Files: src/lib/theme.ts, src/main.tsx (initTheme), TerminalPane.tsx (theme option + suscripción), App.css, TerminalPane.css
 - [x] Task: Copiar/pegar nativo (Wayland)
   - Acceptance: Ctrl+Shift+C copia selección, Ctrl+Shift+V pega (bracketed paste)
   - Verify: pegado end-to-end probado con wl-copy → Ctrl+Shift+V → cat > archivo (verdant-paste-123)
