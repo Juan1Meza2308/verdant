@@ -14,6 +14,7 @@ import {
   type Osc133Marker,
 } from "../lib/osc133";
 import { BlocksState } from "../lib/blocks";
+import { BlockOverlay } from "../lib/blockOverlay";
 import "@xterm/xterm/css/xterm.css";
 import "./TerminalPane.css";
 
@@ -66,6 +67,7 @@ export function TerminalPane({ active = true }: { active?: boolean }) {
   const searchRef = useRef<SearchAddon | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const blocksRef = useRef<BlocksState | null>(null);
+  const overlayRef = useRef<BlockOverlay | null>(null);
   const activeRef = useRef(active);
   activeRef.current = active;
   const [searching, setSearching] = useState(false);
@@ -89,6 +91,8 @@ export function TerminalPane({ active = true }: { active?: boolean }) {
         fontFamily: `${config.fontFamily}, ${FALLBACK_FONT}`,
         scrollback: config.scrollback,
         theme: themeToXterm(getTheme()),
+        // Las decorations (overlay de bloques) viven en API propuesta de xterm.
+        allowProposedApi: true,
       });
       if (disposed) {
         terminal.dispose();
@@ -113,6 +117,7 @@ export function TerminalPane({ active = true }: { active?: boolean }) {
       // Live-reload del tema (Fase 4: generado desde Ryoku/wallpaper).
       const offTheme = subscribeTheme((next) => {
         terminal.options.theme = themeToXterm(next);
+        overlay.setTheme(next);
       });
       disposers.push(offTheme);
 
@@ -127,6 +132,8 @@ export function TerminalPane({ active = true }: { active?: boolean }) {
       sessionId = id;
       const blocks = new BlocksState();
       blocksRef.current = blocks;
+      const overlay = new BlockOverlay(terminal);
+      overlayRef.current = overlay;
 
       // Pipeline OSC 133: bytes → texto (streaming) → segmentos → escrituras
       // serializadas en xterm (callbacks) → marcadores → modelo de bloques.
@@ -157,15 +164,27 @@ export function TerminalPane({ active = true }: { active?: boolean }) {
       const handleMarker = (marker: Osc133Marker, payload?: string) => {
         if (disposed) return;
         const row = absCursorRow();
-        blocks.onMarker(marker, row, payload);
         if (marker === "A") {
+          const wasOpen = blocks.current !== null && blocks.current.endRow === null;
+          blocks.onMarker(marker, row, payload);
+          const opened = blocks.current;
+          if (opened) overlay.openBlock(opened);
+          if (wasOpen && blocks.blocks.length >= 2) {
+            // El bloque anterior quedó finalizado por este A: recalcula su alto.
+            overlay.updateBlock(blocks.blocks[blocks.blocks.length - 2]);
+          }
           void invoke("debug_log", {
             msg: `[blocks] A row=${row} n=${blocks.blocks.length}`,
           });
-        } else if (marker === "C") {
-          void invoke("debug_log", {
-            msg: `[blocks] C row=${row} cmd=${blocks.current?.command ?? ""}`,
-          });
+        } else {
+          blocks.onMarker(marker, row, payload);
+          const current = blocks.current;
+          if (marker === "C" && current) {
+            overlay.updateBlock(current);
+            void invoke("debug_log", {
+              msg: `[blocks] C row=${row} cmd=${current.command}`,
+            });
+          }
         }
       };
 
@@ -230,6 +249,7 @@ export function TerminalPane({ active = true }: { active?: boolean }) {
           void invoke("write_to_pty", { id, data });
         }).dispose,
         terminal.onResize((size) => {
+          overlay.rebuildAll();
           void invoke("resize_terminal", { id, cols: size.cols, rows: size.rows });
         }).dispose,
       );
@@ -260,6 +280,8 @@ export function TerminalPane({ active = true }: { active?: boolean }) {
       if (sessionId !== null) {
         void invoke("close_terminal", { id: sessionId });
       }
+      overlayRef.current?.dispose();
+      overlayRef.current = null;
       term?.dispose();
       termRef.current = null;
       fitRef.current = null;
