@@ -39,8 +39,10 @@ function base64ToBytes(b64: string): Uint8Array {
   return bytes;
 }
 
-export function TerminalPane() {
+export function TerminalPane({ active = true }: { active?: boolean }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const termRef = useRef<Terminal | null>(null);
+  const fitRef = useRef<FitAddon | null>(null);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -74,6 +76,9 @@ export function TerminalPane() {
       terminal.loadAddon(search);
       terminal.loadAddon(webLinks);
       terminal.open(container);
+      term = terminal;
+      termRef.current = terminal;
+      fitRef.current = fit;
 
       const resizeObserver = new ResizeObserver(() => fit.fit());
       resizeObserver.observe(container);
@@ -123,8 +128,22 @@ export function TerminalPane() {
         void invoke("close_terminal", { id: sessionId });
       }
       term?.dispose();
+      termRef.current = null;
+      fitRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    if (!active) return;
+    let raf = 0;
+    // El fit necesita un frame para que el contenedor tenga su tamaño final
+    // (al re-activar una tab que estaba oculta).
+    raf = requestAnimationFrame(() => {
+      fitRef.current?.fit();
+      termRef.current?.focus();
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [active]);
 
   return <div ref={containerRef} className="terminal-pane" />;
 }
