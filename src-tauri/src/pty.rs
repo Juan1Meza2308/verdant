@@ -10,9 +10,8 @@ use std::collections::HashMap;
 use std::io::{Read, Write};
 use tauri::{AppHandle, Emitter};
 
-pub const SHELL_CMD: &str = "fish";
-pub const SHELL_ARGS: &[&str] = &["-l"];
-pub const TERM_ENV: &str = "xterm-256color";
+use crate::config::Config;
+
 pub const READ_CHUNK: usize = 16384;
 
 #[derive(Clone, Serialize)]
@@ -60,6 +59,7 @@ pub fn spawn_session(
     app: &AppHandle,
     cols: u16,
     rows: u16,
+    config: &Config,
 ) -> Result<u32, String> {
     let pty_system = native_pty_system();
     let pair = pty_system
@@ -71,11 +71,11 @@ pub fn spawn_session(
         })
         .map_err(|err| err.to_string())?;
 
-    let mut cmd = CommandBuilder::new(SHELL_CMD);
-    for arg in SHELL_ARGS {
+    let mut cmd = CommandBuilder::new(&config.shell);
+    for arg in &config.shell_args {
         cmd.arg(arg);
     }
-    cmd.env("TERM", TERM_ENV);
+    cmd.env("TERM", &config.term);
     cmd.env("VERDANT", "1");
 
     let child = pair

@@ -1,11 +1,13 @@
 //! Comandos Tauri expuestos al frontend (bridge).
 
+use crate::config::Config;
 use crate::pty;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use tauri::State;
 
 pub struct AppState {
     pub manager: Mutex<pty::SessionManager>,
+    pub config: Arc<Config>,
 }
 
 /// Crea una nueva sesión PTY con el shell por defecto.
@@ -20,7 +22,7 @@ pub fn spawn_terminal(
         .manager
         .lock()
         .map_err(|_| "state lock poisoned".to_string())?;
-    pty::spawn_session(&mut manager, &app, cols, rows)
+    pty::spawn_session(&mut manager, &app, cols, rows, &state.config)
 }
 
 /// Escribe input del usuario (teclado/pegado) hacia el PTY.
@@ -51,4 +53,10 @@ pub fn close_terminal(state: State<AppState>, id: u32) -> Result<(), String> {
         .lock()
         .map_err(|_| "state lock poisoned".to_string())?;
     pty::close_session(&mut manager, id)
+}
+
+/// Devuelve la configuración actual (shell, fuente, scrollback, etc.).
+#[tauri::command]
+pub fn get_config(state: State<AppState>) -> Config {
+    (*state.config).clone()
 }

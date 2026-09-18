@@ -1,21 +1,26 @@
 mod commands;
+mod config;
 mod pty;
 
 use commands::AppState;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let app_config = Arc::new(config::load());
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .manage(AppState {
             manager: Mutex::new(pty::SessionManager::new()),
+            config: app_config,
         })
         .invoke_handler(tauri::generate_handler![
             commands::spawn_terminal,
             commands::write_to_pty,
             commands::resize_terminal,
-            commands::close_terminal
+            commands::close_terminal,
+            commands::get_config
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
