@@ -71,6 +71,8 @@ function App() {
     bind("tab-next", () => cycleTab(1));
     bind("tab-prev", () => cycleTab(-1));
     bind("search", () => dispatchAction("search"));
+    bind("copy", () => dispatchAction("copy"));
+    bind("paste", () => dispatchAction("paste"));
 
     if (bindings.length > 0) {
       void invoke("debug_log", {

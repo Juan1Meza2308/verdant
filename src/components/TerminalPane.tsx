@@ -4,6 +4,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { SearchAddon } from "@xterm/addon-search";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { invoke } from "@tauri-apps/api/core";
+import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { listen } from "@tauri-apps/api/event";
 import { onAction } from "../lib/actions";
 import { getTheme, subscribeTheme, themeToXterm } from "../lib/theme";
@@ -58,6 +59,8 @@ export function TerminalPane({ active = true }: { active?: boolean }) {
   const fitRef = useRef<FitAddon | null>(null);
   const searchRef = useRef<SearchAddon | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const activeRef = useRef(active);
+  activeRef.current = active;
   const [searching, setSearching] = useState(false);
 
   useEffect(() => {
@@ -183,6 +186,45 @@ export function TerminalPane({ active = true }: { active?: boolean }) {
     setSearching(false);
     searchRef.current?.clearDecorations();
     termRef.current?.focus();
+  }, []);
+
+  // Copiar/pegar: solo actúa en el pane activo (los ocultos ignoran la acción).
+  // Los handlers viven en un ref que se refresca en cada render: la suscripción
+  // al bus se registra UNA vez y siempre ejecuta la versión más reciente
+  // (a prueba de stale closures y de HMR).
+  const copyPasteHandlers = useRef({ copy: () => {}, paste: () => {} });
+  copyPasteHandlers.current.copy = () => {
+    if (!activeRef.current) return;
+    const selection = termRef.current?.getSelection();
+    if (selection && selection.length > 0) {
+      void writeText(selection);
+      termRef.current?.clearSelection();
+    }
+  };
+  copyPasteHandlers.current.paste = () => {
+    if (!activeRef.current) return;
+    void readText()
+      .then((text) => {
+        const terminal = termRef.current;
+        if (text && terminal) {
+          // term.paste respeta bracketed paste mode automáticamente.
+          terminal.paste(text);
+        }
+        void invoke("debug_log", {
+          msg: `[paste] len=${text?.length ?? -1} hasTerm=${Boolean(terminal)}`,
+        });
+      })
+      .catch((error) => {
+        void invoke("debug_log", { msg: `[paste] ERROR ${String(error)}` });
+      });
+  };
+  useEffect(() => {
+    const offCopy = onAction("copy", () => copyPasteHandlers.current.copy());
+    const offPaste = onAction("paste", () => copyPasteHandlers.current.paste());
+    return () => {
+      offCopy();
+      offPaste();
+    };
   }, []);
 
   return (

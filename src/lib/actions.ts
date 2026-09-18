@@ -1,7 +1,7 @@
 //! Bus de acciones global: permite que cualquier componente dispare o
 //! escuche acciones de la app (ej. "search") sin acoplarse a React context.
 
-export type ActionName = "search";
+export type ActionName = "search" | "copy" | "paste";
 
 const listeners = new Map<ActionName, Set<() => void>>();
 

@@ -23,6 +23,8 @@ pub const DEFAULT_KEYBINDS: &[(&str, &str)] = &[
     ("tab-next", "Ctrl+Tab"),
     ("tab-prev", "Ctrl+Shift+Tab"),
     ("search", "Ctrl+Shift+F"),
+    ("copy", "Ctrl+Shift+C"),
+    ("paste", "Ctrl+Shift+V"),
 ];
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -136,7 +138,9 @@ fn write_default(path: &PathBuf) {
     "tab-close": "Ctrl+Shift+W",
     "tab-next": "Ctrl+Tab",
     "tab-prev": "Ctrl+Shift+Tab",
-    "search": "Ctrl+Shift+F"
+    "search": "Ctrl+Shift+F",
+    "copy": "Ctrl+Shift+C",
+    "paste": "Ctrl+Shift+V"
   }
 }
 "#;

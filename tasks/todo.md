@@ -39,10 +39,10 @@
   - Acceptance: colores/transparencia del shell vía CSS variables; xterm theme (bg/fg/cursor) coherente
   - Verify: cambiar token en theme.ts y ver al reload
   - Files: src/lib/theme.ts, src/styles/tokens.css, TerminalPane.tsx (theme option), App.css
-- [ ] Task: Copiar/pegar nativo (Wayland)
+- [x] Task: Copiar/pegar nativo (Wayland)
   - Acceptance: Ctrl+Shift+C copia selección, Ctrl+Shift+V pega (bracketed paste)
-  - Verify: copiar texto de salida y pegarlo en otra tab
-  - Files: src/components/TerminalPane.tsx, src/lib/clipboard.ts
+  - Verify: pegado end-to-end probado con wl-copy → Ctrl+Shift+V → cat > archivo (verdant-paste-123)
+  - Files: src/components/TerminalPane.tsx (handlers fresh por ref), src-tauri (plugin clipboard-manager + capabilities), config.rs (copy/paste en keybinds)
 - [ ] Task: Criterio de salida Fase 1
   - Acceptance: un día normal sin abrir kitty/ghostty: tabs, split, buscar, copiar/pegar, tema
   - Verify: uso real por Felipe
