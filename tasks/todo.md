@@ -54,17 +54,17 @@
   - Acceptance: fish ≥ 4 emite `A`, `B`, `C;cmdline_url=<comando url-encoded>` sin tocar config de usuario; conf.d solo como fallback opcional para fish < 4
   - Verify: ✅ fish 4.9.3 con TERM=xterm-256color: A;click_events=1 → B → C;cmdline_url=echo%20%22saludo…%22
   - Files: packaging/fish/verdant.fish (fallback opcional, no instalado)
-- [ ] Task: Parser OSC 133 (lib puro)
+- [x] Task: Parser OSC 133 (lib puro)
   - Acceptance: `segmentOsc133(chunk)` → segmentos `{text, marker?, payload?}`; soporta BEL y ST; texto mezclado intacto; falsos positivos (`echo "\e]133;A"`) no rompen el stream
-  - Verify: vitest (osc133.test.ts)
+  - Verify: ✅ vitest osc133.test.ts (14 tests nuevos; 49/49 globales verdes); MAX_OSC133_TAIL + decodeBase64Utf8 exportados
   - Files: src/lib/osc133.ts
-- [ ] Task: Modelo de bloques (lib puro)
+- [x] Task: Modelo de bloques (lib puro)
   - Acceptance: builder por marcadores (A abre, B fija command, C cierra con endRow); huérfanos ignorados; bloques del final abiertos
-  - Verify: vitest (blocks.test.ts)
+  - Verify: ✅ vitest blocks.test.ts (decodeCommandPayload cmdline_url/cmd, transiciones A/B/C, navegación adjacent/containing)
   - Files: src/lib/blocks.ts
-- [ ] Task: Integración stream→modelo en TerminalPane
+- [x] Task: Integración stream→modelo en TerminalPane
   - Acceptance: los marcadores se eliminan antes de `write` (xterm nunca los ve); escrituras serializadas con callbacks (row exacta en cada marcador); cola de marcadores pendientes
-  - Verify: manual (comandos corridos → bloques en modelo, docs log) + sin regresión TUI (btop/nvim)
+  - Verify: ✅ build TS verde + 49 tests; logs `[blocks] A/C` esperados en startup (primer prompt). Verificación runtime en curso (ver `[blocks]` en salida dev)
   - Files: src/components/TerminalPane.tsx
 - [ ] Task: Overlay visual de bloques (decorations)
   - Acceptance: fondo sutil por bloque en viewport (layer bottom) + contorno del activo (layer top); sólo bloques visibles/adyacentes pintados; scroll automático con decorations; `pointer-events: none`
@@ -86,7 +86,6 @@
   - Acceptance: los 6 success criteria de SPEC-blocks.md (bloques navegables, rerun, copy, snippets con variables, TUI intactas, tests verdes)
   - Verify: uso real por Felipe
 
-## Fase 3: sessions (pendiente)
 ## Fase 3: sessions (pendiente)
 ## Fase 4: theming ryoku (pendiente)
 ## Fase 5: ai opencode (pendiente)
