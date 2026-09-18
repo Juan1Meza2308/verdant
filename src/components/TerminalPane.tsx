@@ -8,6 +8,12 @@ import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { listen } from "@tauri-apps/api/event";
 import { onAction } from "../lib/actions";
 import { getTheme, subscribeTheme, themeToXterm } from "../lib/theme";
+import {
+  MAX_OSC133_TAIL,
+  parseOsc133,
+  type Osc133Marker,
+} from "../lib/osc133";
+import { BlocksState } from "../lib/blocks";
 import "@xterm/xterm/css/xterm.css";
 import "./TerminalPane.css";
 
@@ -59,6 +65,7 @@ export function TerminalPane({ active = true }: { active?: boolean }) {
   const fitRef = useRef<FitAddon | null>(null);
   const searchRef = useRef<SearchAddon | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const blocksRef = useRef<BlocksState | null>(null);
   const activeRef = useRef(active);
   activeRef.current = active;
   const [searching, setSearching] = useState(false);
@@ -118,6 +125,105 @@ export function TerminalPane({ active = true }: { active?: boolean }) {
         return;
       }
       sessionId = id;
+      const blocks = new BlocksState();
+      blocksRef.current = blocks;
+
+      // Pipeline OSC 133: bytes → texto (streaming) → segmentos → escrituras
+      // serializadas en xterm (callbacks) → marcadores → modelo de bloques.
+      // Los marcadores se procesan SIEMPRE en el punto exacto del stream:
+      //  · los que abren un chunk, al arrancar el drain (no hay escrituras en vuelo);
+      //  · los intermedios, en el callback de la escritura de texto anterior
+      //    (esa posición ya está parseada y la siguiente todavía no).
+      const decoder = new TextDecoder("utf-8");
+      let oscTail = "";
+      let draining = false;
+      interface MarkerItem {
+        marker: Osc133Marker;
+        payload?: string;
+      }
+      interface StreamStep {
+        text: string;
+        after: MarkerItem[];
+      }
+      const steps: StreamStep[] = [];
+      let firstMarkers: MarkerItem[] = [];
+      let lastStep: StreamStep | null = null;
+
+      const absCursorRow = () => {
+        const buffer = terminal.buffer.active;
+        return buffer.baseY + buffer.cursorY;
+      };
+
+      const handleMarker = (marker: Osc133Marker, payload?: string) => {
+        if (disposed) return;
+        const row = absCursorRow();
+        blocks.onMarker(marker, row, payload);
+        if (marker === "A") {
+          void invoke("debug_log", {
+            msg: `[blocks] A row=${row} n=${blocks.blocks.length}`,
+          });
+        } else if (marker === "C") {
+          void invoke("debug_log", {
+            msg: `[blocks] C row=${row} cmd=${blocks.current?.command ?? ""}`,
+          });
+        }
+      };
+
+      const pushText = (text: string) => {
+        if (text.length === 0) return;
+        const step: StreamStep = { text, after: [] };
+        steps.push(step);
+        lastStep = step;
+      };
+
+      const pushMarker = (marker: Osc133Marker, payload?: string) => {
+        const item: MarkerItem = { marker, payload };
+        if (lastStep) lastStep.after.push(item);
+        else firstMarkers.push(item);
+      };
+
+      const finishDrain = () => {
+        draining = false;
+      };
+
+      const drain = () => {
+        if (draining || disposed) return;
+        draining = true;
+        const run = () => {
+          if (disposed) return finishDrain();
+          const step = steps.shift();
+          if (!step) return finishDrain();
+          // Si consumimos el último step, los marcadores de chunks siguientes
+          // deben ir a firstMarkers (drain nuevo) y no a un step ya procesado.
+          if (step === lastStep) lastStep = null;
+          // El callback corre cuando xterm termina de parsear este segmento:
+          // ahí sí es segura la posición de los marcadores que lo siguen.
+          terminal.write(step.text, () => {
+            if (disposed) return finishDrain();
+            for (const m of step.after) handleMarker(m.marker, m.payload);
+            run();
+          });
+        };
+        for (const m of firstMarkers) handleMarker(m.marker, m.payload);
+        firstMarkers = [];
+        run();
+      };
+
+      const pushChunk = (chunk: string) => {
+        const { segments, remaining } = parseOsc133(oscTail + chunk);
+        if (remaining.length > MAX_OSC133_TAIL) {
+          // Terminador que nunca llegó: degradación, se emite como texto plano.
+          pushText(remaining);
+          oscTail = "";
+        } else {
+          oscTail = remaining;
+        }
+        for (const seg of segments) {
+          if (seg.marker) pushMarker(seg.marker, seg.payload);
+          else pushText(seg.text);
+        }
+        if (!draining) drain();
+      };
 
       disposers.push(
         terminal.onData((data) => {
@@ -130,7 +236,8 @@ export function TerminalPane({ active = true }: { active?: boolean }) {
 
       const unData = await listen<TerminalDataEvent>("terminal-data", (event) => {
         if (event.payload.id === id) {
-          terminal.write(base64ToBytes(event.payload.data));
+          // UTF-8 rematado (un multibyte puede llegar partido entre chunks).
+          pushChunk(decoder.decode(base64ToBytes(event.payload.data), { stream: true }));
         }
       });
       const unExit = await listen<TerminalExitEvent>("terminal-exit", (event) => {
@@ -157,6 +264,7 @@ export function TerminalPane({ active = true }: { active?: boolean }) {
       termRef.current = null;
       fitRef.current = null;
       searchRef.current = null;
+      blocksRef.current = null;
     };
   }, []);
 

@@ -7,6 +7,13 @@ import {
   type Block,
 } from "./blocks";
 
+function toBase64Utf8(input: string): string {
+  const bytes = new TextEncoder().encode(input);
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
+
 describe("decodeCommandPayload", () => {
   it("decodifica cmdline_url percent-encoded (nativo de fish)", () => {
     expect(decodeCommandPayload("cmdline_url=echo%20hi")).toBe("echo hi");
@@ -16,7 +23,7 @@ describe("decodeCommandPayload", () => {
   });
 
   it("decodifica cmd= base64 (fallback conf.d)", () => {
-    const encoded = Buffer.from("git add .", "utf8").toString("base64");
+    const encoded = toBase64Utf8("git add .");
     expect(decodeCommandPayload(`cmd=${encoded}`)).toBe("git add .");
   });
 

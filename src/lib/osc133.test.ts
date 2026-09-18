@@ -9,6 +9,13 @@ function text(s: string): Osc133Segment {
   return { text: s };
 }
 
+function toBase64Utf8(input: string): string {
+  const bytes = new TextEncoder().encode(input);
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
+
 describe("parseOsc133", () => {
   it("deja el texto plano intacto en un solo segmento", () => {
     const res = parseOsc133("hola\r\nmundo");
@@ -122,12 +129,12 @@ describe("parseOsc133", () => {
 
 describe("decodeBase64Utf8", () => {
   it("decodifica comandos con acentos y espacios", () => {
-    const encoded = Buffer.from('echo "saludo: á é í"', "utf8").toString("base64");
+    const encoded = toBase64Utf8('echo "saludo: á é í"');
     expect(decodeBase64Utf8(encoded)).toBe('echo "saludo: á é í"');
   });
 
   it("decodifica comandos multilínea", () => {
-    const encoded = Buffer.from("git add .\ngit commit -m x", "utf8").toString("base64");
+    const encoded = toBase64Utf8("git add .\ngit commit -m x");
     expect(decodeBase64Utf8(encoded)).toBe("git add .\ngit commit -m x");
   });
 });
