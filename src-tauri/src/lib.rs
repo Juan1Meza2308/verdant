@@ -1,0 +1,22 @@
+mod commands;
+mod pty;
+
+use commands::AppState;
+use std::sync::Mutex;
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
+        .manage(AppState {
+            manager: Mutex::new(pty::SessionManager::new()),
+        })
+        .invoke_handler(tauri::generate_handler![
+            commands::spawn_terminal,
+            commands::write_to_pty,
+            commands::resize_terminal,
+            commands::close_terminal
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}

@@ -1,0 +1,17 @@
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  background: #0d1117;
+}
+
+.app-shell {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+* {
+  box-sizing: border-box;
+}
