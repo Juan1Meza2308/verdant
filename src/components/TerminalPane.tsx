@@ -13,7 +13,7 @@ import {
   parseOsc133,
   type Osc133Marker,
 } from "../lib/osc133";
-import { BlocksState } from "../lib/blocks";
+import { BlocksState, adjacentBlockId } from "../lib/blocks";
 import { BlockOverlay } from "../lib/blockOverlay";
 import "@xterm/xterm/css/xterm.css";
 import "./TerminalPane.css";
@@ -354,6 +354,87 @@ export function TerminalPane({ active = true }: { active?: boolean }) {
     return () => {
       offCopy();
       offPaste();
+    };
+  }, []);
+
+  // Handlers de acciones de bloques (tarea 6: navegación, rerun, copy, snippets).
+  const blockHandlers = useRef({
+    "block-prev": () => {},
+    "block-next": () => {},
+    "block-rerun": () => {},
+    "block-copy": () => {},
+    snippets: () => {},
+  });
+  blockHandlers.current["block-prev"] = () => {
+    if (!activeRef.current) return;
+    const blocks = blocksRef.current;
+    const overlay = overlayRef.current;
+    if (!blocks || !overlay) return;
+    const current = blocks.current;
+    if (!current) return;
+    const prevId = adjacentBlockId(blocks.blocks, current.id, -1);
+    if (prevId !== null) {
+      overlay.select(prevId);
+      const prev = blocks.blocks.find((b) => b.id === prevId);
+      if (prev) {
+        const targetRow = Math.max(0, prev.startRow - 1);
+        termRef.current?.scrollToLine(targetRow);
+      }
+    }
+  };
+  blockHandlers.current["block-next"] = () => {
+    if (!activeRef.current) return;
+    const blocks = blocksRef.current;
+    const overlay = overlayRef.current;
+    if (!blocks || !overlay) return;
+    const current = blocks.current;
+    if (!current) return;
+    const nextId = adjacentBlockId(blocks.blocks, current.id, 1);
+    if (nextId !== null) {
+      overlay.select(nextId);
+      const next = blocks.blocks.find((b) => b.id === nextId);
+      if (next) {
+        const targetRow = Math.max(0, next.startRow - 1);
+        termRef.current?.scrollToLine(targetRow);
+      }
+    }
+  };
+  blockHandlers.current["block-rerun"] = () => {
+    if (!activeRef.current) return;
+    const blocks = blocksRef.current;
+    if (!blocks) return;
+    const current = blocks.current;
+    if (!current || !current.command) return;
+    termRef.current?.paste(current.command + "\n");
+  };
+  blockHandlers.current["block-copy"] = () => {
+    if (!activeRef.current) return;
+    const blocks = blocksRef.current;
+    if (!blocks) return;
+    const current = blocks.current;
+    if (!current || !current.command) return;
+    void writeText(current.command).then(() => {
+      void invoke("debug_log", { msg: `[block-copy] command copied` });
+    });
+  };
+  blockHandlers.current.snippets = () => {
+    if (!activeRef.current) return;
+    // Stub Fase 2 tarea 8: el overlay de snippets se conectará aquí.
+    void invoke("debug_log", { msg: "[snippets] action triggered (stub)" });
+  };
+
+  useEffect(() => {
+    const offPrev = onAction("block-prev", () => blockHandlers.current["block-prev"]());
+    const offNext = onAction("block-next", () => blockHandlers.current["block-next"]());
+    const offRerun = onAction("block-rerun", () => blockHandlers.current["block-rerun"]());
+    const offCopyCmd = onAction("block-copy", () => blockHandlers.current["block-copy"]());
+    const offSnip = onAction("snippets", () => blockHandlers.current.snippets());
+    return () => {
+      offPrev();
+      offNext();
+      offRerun();
+      offCopyCmd();
+      offSnip();
     };
   }, []);
 

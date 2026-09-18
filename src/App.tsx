@@ -164,6 +164,11 @@ function App() {
     bind("search", () => dispatchAction("search"));
     bind("copy", () => dispatchAction("copy"));
     bind("paste", () => dispatchAction("paste"));
+    bind("block-prev", () => dispatchAction("block-prev"));
+    bind("block-next", () => dispatchAction("block-next"));
+    bind("block-rerun", () => dispatchAction("block-rerun"));
+    bind("block-copy", () => dispatchAction("block-copy"));
+    bind("snippets", () => dispatchAction("snippets"));
     bind("split-v", () => splitActivePane("v"));
     bind("split-h", () => splitActivePane("h"));
     bind("pane-close", closeActivePane);

@@ -30,6 +30,11 @@ pub const DEFAULT_KEYBINDS: &[(&str, &str)] = &[
     ("pane-close", "Ctrl+Shift+Q"),
     ("pane-next", "Ctrl+Shift+J"),
     ("pane-prev", "Ctrl+Shift+K"),
+    ("block-prev", "Ctrl+Shift+ArrowUp"),
+    ("block-next", "Ctrl+Shift+ArrowDown"),
+    ("block-rerun", "Ctrl+Shift+R"),
+    ("block-copy", "Ctrl+Shift+Y"),
+    ("snippets", "Ctrl+Shift+S"),
 ];
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

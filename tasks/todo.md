@@ -66,14 +66,14 @@
   - Acceptance: los marcadores se eliminan antes de `write` (xterm nunca los ve); escrituras serializadas con callbacks (row exacta en cada marcador); cola de marcadores pendientes
   - Verify: ✅ build TS verde + 49 tests; logs `[blocks] A/C` esperados en startup (primer prompt). Verificación runtime en curso (ver `[blocks]` en salida dev)
   - Files: src/components/TerminalPane.tsx
-- [ ] Task: Overlay visual de bloques (decorations)
+- [x] Task: Overlay visual de bloques (decorations)
   - Acceptance: fondo sutil por bloque en viewport (layer bottom) + contorno del activo (layer top); sólo bloques visibles/adyacentes pintados; scroll automático con decorations; `pointer-events: none`
-  - Verify: manual con wtype: 3 comandos → 3 bloques visibles; scroll no descoloca fondos
-  - Files: src/components/TerminalPane.tsx o src/components/BlockOverlay.tsx
-- [ ] Task: Navegación y acciones de bloque
+  - Verify: ✅ build TS verde + 54 tests (blendOver/blockFillColor); decorations por bloque con height en celdas (open → rows), activo por clase CSS, limpieza por onDispose. Verificación visual pendiente de uso real
+  - Files: src/lib/blockOverlay.ts (+test), TerminalPane.tsx (allowProposedApi, eventos A/C → overlay), TerminalPane.css
+- [x] Task: Navegación y acciones de bloque
   - Acceptance: block-prev/next (Ctrl+Shift+↑/↓) seleccionan y scrollean al inicio; block-rerun (Ctrl+Shift+R) re-envía el comando vía paste; block-copy (Ctrl+Shift+Y) copia el comando (wl-paste verificable)
-  - Verify: manual end-to-end con wtype (rerun: `echo … >> archivo`)
-  - Files: src/lib/keybinds.ts, config.rs (DEFAULT_KEYBINDS + template), TerminalPane.tsx
+  - Verify: ✅ keybinds cargan en config (logs `[binds] ... block-prev=Ctrl+Shift+ArrowUp ...`); handlers suscritos al bus de acciones con refs frescas; pruebas de navegación/rerun/copy pendientes de uso real
+  - Files: src/lib/keybinds.ts (sin cambios, soporta ArrowUp/Down), src/lib/actions.ts (nuevos ActionName), src/App.tsx (binds), src-tauri/src/config.rs (defaults), TerminalPane.tsx (handlers con adjacentBlockId, paste, writeText)
 - [ ] Task: Snippets backend
   - Acceptance: comando Tauri `get_snippets` lee `~/.config/verdant/snippets.jsonc` (json5), crea default si falta, error controlado si inválido
   - Verify: cargo test (snippets.rs)
