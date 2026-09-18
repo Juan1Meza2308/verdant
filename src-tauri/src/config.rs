@@ -25,6 +25,11 @@ pub const DEFAULT_KEYBINDS: &[(&str, &str)] = &[
     ("search", "Ctrl+Shift+F"),
     ("copy", "Ctrl+Shift+C"),
     ("paste", "Ctrl+Shift+V"),
+    ("split-v", "Ctrl+Shift+E"), // columna a la derecha (estilo kitty)
+    ("split-h", "Ctrl+Shift+O"), // fila debajo (estilo kitty)
+    ("pane-close", "Ctrl+Shift+Q"),
+    ("pane-next", "Ctrl+Shift+J"),
+    ("pane-prev", "Ctrl+Shift+K"),
 ];
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -140,7 +145,12 @@ fn write_default(path: &PathBuf) {
     "tab-prev": "Ctrl+Shift+Tab",
     "search": "Ctrl+Shift+F",
     "copy": "Ctrl+Shift+C",
-    "paste": "Ctrl+Shift+V"
+    "paste": "Ctrl+Shift+V",
+    "split-v": "Ctrl+Shift+E",
+    "split-h": "Ctrl+Shift+O",
+    "pane-close": "Ctrl+Shift+Q",
+    "pane-next": "Ctrl+Shift+J",
+    "pane-prev": "Ctrl+Shift+K"
   }
 }
 "#;

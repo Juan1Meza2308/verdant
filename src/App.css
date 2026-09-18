@@ -137,3 +137,50 @@ body,
 .pane-hidden {
   visibility: hidden;
 }
+
+/* --- Split panes --- */
+
+.split-col {
+  display: flex;
+  flex-direction: row;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  background: var(--v-border);
+}
+
+.split-row {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  background: var(--v-border);
+}
+
+.split-slot {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  background: var(--v-bg);
+}
+
+.split-leaf {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+}
+
+/* Anillo de foco sutil sobre el pane activo. */
+.pane-focused::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 1px var(--v-accent);
+  opacity: 0.55;
+}
