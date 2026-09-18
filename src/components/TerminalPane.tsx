@@ -6,16 +6,21 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { onAction } from "../lib/actions";
+import { getTheme, subscribeTheme, themeToXterm } from "../lib/theme";
 import "@xterm/xterm/css/xterm.css";
 import "./TerminalPane.css";
 
 const FALLBACK_FONT = '"JetBrains Mono", "Fira Code", "Cascadia Code", monospace';
-const SEARCH_DECORATIONS = {
-  matchBackground: "#3d4457",
-  matchOverviewRuler: "#3d4457",
-  activeMatchBackground: "#5eead4",
-  activeMatchColorOverviewRuler: "#5eead4",
-};
+
+function searchDecorations() {
+  const theme = getTheme();
+  return {
+    matchBackground: theme.ansi[8],
+    matchOverviewRuler: theme.ansi[8],
+    activeMatchBackground: theme.accent,
+    activeMatchColorOverviewRuler: theme.accent,
+  };
+}
 
 interface TerminalDataEvent {
   id: number;
@@ -73,6 +78,7 @@ export function TerminalPane({ active = true }: { active?: boolean }) {
         fontSize: config.fontSize,
         fontFamily: `${config.fontFamily}, ${FALLBACK_FONT}`,
         scrollback: config.scrollback,
+        theme: themeToXterm(getTheme()),
       });
       if (disposed) {
         terminal.dispose();
@@ -93,6 +99,12 @@ export function TerminalPane({ active = true }: { active?: boolean }) {
 
       const resizeObserver = new ResizeObserver(() => fit.fit());
       resizeObserver.observe(container);
+
+      // Live-reload del tema (Fase 4: generado desde Ryoku/wallpaper).
+      const offTheme = subscribeTheme((next) => {
+        terminal.options.theme = themeToXterm(next);
+      });
+      disposers.push(offTheme);
 
       const id = await invoke<number>("spawn_terminal", {
         cols: terminal.cols,
@@ -184,10 +196,10 @@ export function TerminalPane({ active = true }: { active?: boolean }) {
             if (!addon) return;
             addon.clearDecorations();
             if (query.length > 0) {
-              addon.findNext(query, { decorations: SEARCH_DECORATIONS });
+              addon.findNext(query, { decorations: searchDecorations() });
             }
             if (!forward) {
-              addon.findPrevious(query, { decorations: SEARCH_DECORATIONS });
+              addon.findPrevious(query, { decorations: searchDecorations() });
             }
           }}
           onClose={closeSearch}

@@ -4,7 +4,7 @@
   min-height: 0;
   overflow: hidden;
   padding: 8px;
-  background: #0b0e14;
+  background: var(--v-bg);
   position: relative;
 }
 
@@ -31,8 +31,8 @@
   align-items: center;
   gap: 4px;
   padding: 4px;
-  background: #161b26;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--v-surface);
+  border: 1px solid var(--v-border);
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
   z-index: 10;
@@ -42,7 +42,7 @@
   width: 220px;
   border: none;
   background: transparent;
-  color: #e6eaf2;
+  color: var(--v-fg);
   font: inherit;
   font-size: 13px;
   padding: 4px 6px;
@@ -50,13 +50,13 @@
 }
 
 .search-input::placeholder {
-  color: #6b7485;
+  color: var(--v-fg-dim);
 }
 
 .search-btn {
   border: none;
   background: transparent;
-  color: #9aa4b5;
+  color: var(--v-fg-dim);
   font-size: 13px;
   padding: 4px 8px;
   border-radius: 6px;
@@ -65,7 +65,7 @@
 
 .search-btn:hover {
   background: rgba(255, 255, 255, 0.1);
-  color: #e6eaf2;
+  color: var(--v-fg);
 }
 
 .search-close:hover {
