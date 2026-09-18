@@ -1,0 +1,26 @@
+# Todo — Fase 0: terminal-core
+
+- [ ] Task: Scafold Tauri v2 + React + TS (create-tauri-app)
+  - Acceptance: `npm run tauri dev` compila y abre ventana base
+  - Verify: `npm run tauri dev`
+  - Files: proyecto completo (estructura base)
+- [ ] Task: PTY backend con portable-pty
+  - Acceptance: comando `spawn_terminal` crea PTY con `fish -l`; resize y IO por eventos Tauri
+  - Verify: `cargo test` + prueba manual con echo
+  - Files: src-tauri/src/pty.rs, commands.rs, main.rs
+- [ ] Task: TerminalPane con xterm.js conectado al PTY
+  - Acceptance: se ve fish interactivo; escribir/resize fluyen; Ctrl+C funciona
+  - Verify: `npm run tauri dev` + escribir `echo hola`
+  - Files: src/components/TerminalPane.tsx, src/lib/bridge.ts
+- [ ] Task: Scrollback + addons (fit, search, web-links)
+  - Acceptance: resize ajusta fit, scrollback > 5000, Ctrl+Shift+F busca inline
+  - Verify: manual con `seq 1 10000`
+  - Files: src/components/TerminalPane.tsx, package.json
+- [ ] Task: Config mínima verdant.jsonc
+  - Acceptance: shell por defecto, scrollback, font family leídos desde config
+  - Verify: cambiar `"fontFamily"` y ver efecto al recargar
+  - Files: src-tauri/src/config.rs, verdant.jsonc (en ~/.config/verdant/)
+- [ ] Task: Microcommit final + criterio de salida documentado
+  - Acceptance: vim y htop corren fluidos en la app
+  - Verify: manual
+  - Files: —
