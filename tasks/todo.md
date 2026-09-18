@@ -27,10 +27,10 @@
   - Acceptance: Ctrl+Shift+T abre tab nueva con shell; Ctrl+Shift+W cierra; renombrar por doble click
   - Verify: manual en `npm run tauri dev`
   - Files: src/components/TabBar.tsx, App.tsx, TerminalPane.tsx, pty.rs (sin cambio, multi-sesión ya soportado)
-- [ ] Task: Keybinds base configurables
-  - Acceptance: atajos desde config (tabs, buscar, copiar/pegar, pane split); engine propio en lib/keybinds.ts
-  - Verify: probar cada atajo
-  - Files: src/lib/keybinds.ts, src-tauri/src/config.rs (keybinds[])
+- [x] Task: Keybinds base configurables
+  - Acceptance: atajos desde config (tabs, buscar); engine propio en lib/keybinds.ts
+  - Verify: Ctrl+Shift+T/W, Ctrl+Tab/Ctrl+Shift+Tab, Ctrl+Shift+F (buscador inline con decorations)
+  - Files: src/lib/keybinds.ts, src/lib/actions.ts, src-tauri/src/config.rs (keybinds[] + merge con defaults)
 - [ ] Task: Split panes (vertical/horizontal)
   - Acceptance: dividir la vista; cada pane su sesión; navegación focus con atajo
   - Verify: abrir 2 panes y correr comandos en cada uno

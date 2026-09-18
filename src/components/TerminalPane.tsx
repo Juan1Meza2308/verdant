@@ -1,14 +1,21 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { SearchAddon } from "@xterm/addon-search";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { onAction } from "../lib/actions";
 import "@xterm/xterm/css/xterm.css";
 import "./TerminalPane.css";
 
 const FALLBACK_FONT = '"JetBrains Mono", "Fira Code", "Cascadia Code", monospace';
+const SEARCH_DECORATIONS = {
+  matchBackground: "#3d4457",
+  matchOverviewRuler: "#3d4457",
+  activeMatchBackground: "#5eead4",
+  activeMatchColorOverviewRuler: "#5eead4",
+};
 
 interface TerminalDataEvent {
   id: number;
@@ -28,6 +35,7 @@ export interface VerdantConfig {
   fontSize: number;
   scrollback: number;
   cursorBlink: boolean;
+  keybinds: Record<string, string>;
 }
 
 function base64ToBytes(b64: string): Uint8Array {
@@ -43,6 +51,9 @@ export function TerminalPane({ active = true }: { active?: boolean }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
+  const searchRef = useRef<SearchAddon | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const [searching, setSearching] = useState(false);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -68,6 +79,7 @@ export function TerminalPane({ active = true }: { active?: boolean }) {
         return;
       }
       term = terminal;
+      termRef.current = terminal;
 
       const fit = new FitAddon();
       const search = new SearchAddon();
@@ -76,9 +88,8 @@ export function TerminalPane({ active = true }: { active?: boolean }) {
       terminal.loadAddon(search);
       terminal.loadAddon(webLinks);
       terminal.open(container);
-      term = terminal;
-      termRef.current = terminal;
       fitRef.current = fit;
+      searchRef.current = search;
 
       const resizeObserver = new ResizeObserver(() => fit.fit());
       resizeObserver.observe(container);
@@ -130,6 +141,7 @@ export function TerminalPane({ active = true }: { active?: boolean }) {
       term?.dispose();
       termRef.current = null;
       fitRef.current = null;
+      searchRef.current = null;
     };
   }, []);
 
@@ -145,5 +157,89 @@ export function TerminalPane({ active = true }: { active?: boolean }) {
     return () => cancelAnimationFrame(raf);
   }, [active]);
 
-  return <div ref={containerRef} className="terminal-pane" />;
+  const openSearch = useCallback(() => {
+    setSearching(true);
+    requestAnimationFrame(() => {
+      searchInputRef.current?.focus();
+      searchInputRef.current?.select();
+    });
+  }, []);
+
+  useEffect(() => onAction("search", openSearch), [openSearch]);
+
+  const closeSearch = useCallback(() => {
+    setSearching(false);
+    searchRef.current?.clearDecorations();
+    termRef.current?.focus();
+  }, []);
+
+  return (
+    <div className="terminal-pane">
+      <div ref={containerRef} className="terminal-host" />
+      {searching && (
+        <SearchOverlay
+          inputRef={searchInputRef}
+          onQuery={(query, forward) => {
+            const addon = searchRef.current;
+            if (!addon) return;
+            addon.clearDecorations();
+            if (query.length > 0) {
+              addon.findNext(query, { decorations: SEARCH_DECORATIONS });
+            }
+            if (!forward) {
+              addon.findPrevious(query, { decorations: SEARCH_DECORATIONS });
+            }
+          }}
+          onClose={closeSearch}
+        />
+      )}
+    </div>
+  );
+}
+
+function SearchOverlay({
+  inputRef,
+  onQuery,
+  onClose,
+}: {
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  onQuery: (query: string, forward: boolean) => void;
+  onClose: () => void;
+}) {
+  const [query, setQuery] = useState("");
+
+  const run = (forward: boolean) => onQuery(query, forward);
+
+  return (
+    <div className="search-overlay" role="search">
+      <input
+        ref={inputRef}
+        className="search-input"
+        value={query}
+        placeholder="Buscar en la salida…"
+        onChange={(event) => {
+          const next = event.currentTarget.value;
+          setQuery(next);
+          onQuery(next, true);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            run(!event.shiftKey);
+          } else if (event.key === "Escape") {
+            onClose();
+          }
+        }}
+      />
+      <button type="button" className="search-btn" onClick={() => run(true)} title="Siguiente (Enter)">
+        ↓
+      </button>
+      <button type="button" className="search-btn" onClick={() => run(false)} title="Anterior (Shift+Enter)">
+        ↑
+      </button>
+      <button type="button" className="search-btn search-close" onClick={onClose} title="Cerrar (Escape)">
+        ×
+      </button>
+    </div>
+  );
 }
