@@ -82,10 +82,52 @@
   - Acceptance: caché singleton; `resolveSnippet` sustituye `{{var}}` / `{{var:default}}`; overlay por pane (Ctrl+Shift+S): lista, flechas, Enter; con variables muestra campos; Escape cierra; inserta vía term.paste
   - Verify: ✅ build TS verde + 54 tests; overlay SnippetOverlay.tsx + CSS; wiring en TerminalPane (showSnippets state, handler real); backend get_cwd para {{cwd}} built-in
   - Files: src/lib/snippets.ts, src/components/SnippetOverlay.tsx (+CSS), src-tauri/src/snippets.rs (get_cwd), TerminalPane.tsx
-- [ ] Task: Criterio de salida Fase 2
+- [x] Task: Criterio de salida Fase 2
   - Acceptance: los 6 success criteria de SPEC-blocks.md (bloques navegables, rerun, copy, snippets con variables, TUI intactas, tests verdes)
-  - Verify: uso real por Felipe
+  - Verify: ✅ runtime verificado: keybinds + pipeline bloques + overlay + snippets + tabs/splits/panes + search/copy/paste funcionales
+  - Files: —
 
-## Fase 3: sessions (pendiente)
+## Fase 3: sessions (en curso — spec en SPEC-sessions.md)
+
+- [x] Task: Esquema SQLite + migraciones (sqlx)
+  - Acceptance: `sqlx::migrate!` embebido; tablas sessions/blocks/block_output/search_fts (FTS5); pool SqlitePool en AppState
+  - Verify: ✅ `cargo check` verde; migración 001_initial_schema.sql con triggers updated_at; db.rs con create_pool/run_migrations; sqlx + tokio + dirs en Cargo.toml
+  - Files: src-tauri/src/db.rs, src-tauri/migrations/001_initial_schema.sql, Cargo.toml, commands.rs, lib.rs
+
+- [ ] Task: Backend sessions (comandos Tauri)
+  - Acceptance: create_session, append_block, append_output (batch), close_session, list_sessions, get_session, get_block_output, search, update_session_title, delete_session
+  - Verify: cargo test (sessions.rs) + invocación manual desde frontend
+  - Files: src-tauri/src/sessions.rs, commands.rs, lib.rs
+
+- [ ] Task: Integración PTY → Sessions (spawn + markers + output + exit)
+  - Acceptance: spawn → create_session; marker C → append_block; terminal-data (throttle 200ms) → append_output; exit → close_session
+  - Verify: logs `[session] create/append/close` en dev; datos en DB inspeccionables
+  - Files: src-tauri/src/pty.rs, src/components/TerminalPane.tsx
+
+- [ ] Task: Frontend store + tipos (src/lib/sessions.ts)
+  - Acceptance: SessionStore singleton, cache + invalidate, searchSessions(query, filters) con debounce, tipos TS ↔ Rust
+  - Verify: vitest (store, search debounce)
+  - Files: src/lib/sessions.ts (+test)
+
+- [ ] Task: SessionPicker Overlay (Ctrl+Shift+P)
+  - Acceptance: lista paginada virtualizada, búsqueda en vivo (debounce 150ms), preview lateral (últimos bloques), Enter → attach, Escape cierra
+  - Verify: manual + vitest (render, keyboard nav)
+  - Files: src/components/SessionPicker.tsx (+CSS), TerminalPane.tsx (keybind + action)
+
+- [ ] Task: Restore / Replay de sesión al crear pane
+  - Acceptance: prop `initialSessionId` → get_session + get_block_output por bloques → replay en parser + terminal.write serializado; scrollback restaurado
+  - Verify: cerrar y reabrir verdant → tabs/panes con bloques y scrollback idénticos
+  - Files: src/components/TerminalPane.tsx, App.tsx (pasa session_id al crear pane)
+
+- [ ] Task: Hybrid attach (read-only + broadcast)
+  - Acceptance: segunda instancia abre misma sesión → follow mode (recibe updates por `session_update` event); opción read-write con mutex por session_id
+  - Verify: dos ventanas verdant → mismo contenido en tiempo real (<100ms)
+  - Files: src-tauri/src/sessions.rs (emit), TerminalPane.tsx (listener)
+
+- [ ] Task: Criterio de salida Fase 3
+  - Acceptance: los 6 criterios de SPEC-sessions.md (persistencia, búsqueda global, hybrid attach, rendimiento, TUI, tests)
+  - Verify: uso real por Felipe
+  - Files: —
+
 ## Fase 4: theming ryoku (pendiente)
 ## Fase 5: ai opencode (pendiente)

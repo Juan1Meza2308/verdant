@@ -2,12 +2,14 @@
 
 use crate::config::Config;
 use crate::pty;
+use sqlx::SqlitePool;
 use std::sync::{Arc, Mutex};
 use tauri::State;
 
 pub struct AppState {
     pub manager: Mutex<pty::SessionManager>,
     pub config: Arc<Config>,
+    pub db: SqlitePool,
 }
 
 /// Crea una nueva sesión PTY con el shell por defecto.
