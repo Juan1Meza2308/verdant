@@ -3,6 +3,7 @@
 
 use crate::config::CONFIG_DIR;
 use serde::{Deserialize, Serialize};
+use std::env;
 use std::fs;
 use std::path::PathBuf;
 
@@ -72,4 +73,12 @@ pub fn get_snippets() -> Result<Vec<Snippet>, String> {
         }
     }
     Ok(file.snippets)
+}
+
+/// Comando Tauri: devuelve el directorio de trabajo actual del proceso.
+#[tauri::command]
+pub fn get_cwd() -> Result<String, String> {
+    env::current_dir()
+        .map(|p| p.to_string_lossy().into_owned())
+        .map_err(|e| format!("get cwd: {e}"))
 }

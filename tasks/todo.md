@@ -78,10 +78,10 @@
   - Acceptance: comando Tauri `get_snippets` lee `~/.config/verdant/snippets.jsonc` (json5), crea default si falta, error controlado si inválido
   - Verify: ✅ `cargo check` verde; módulo `snippets.rs` + comando registrado; default con `date`/`cwd`; validación trigger no vacío
   - Files: src-tauri/src/snippets.rs, lib.rs
-- [ ] Task: Snippets frontend (lib + overlay)
+- [x] Task: Snippets frontend (lib + overlay)
   - Acceptance: caché singleton; `resolveSnippet` sustituye `{{var}}` / `{{var:default}}`; overlay por pane (Ctrl+Shift+S): lista, flechas, Enter; con variables muestra campos; Escape cierra; inserta vía term.paste
-  - Verify: vitest (snippets.test.ts) + manual (cat > archivo recibe el snippet resuelto)
-  - Files: src/lib/snippets.ts, src/components/SnippetOverlay.tsx, TerminalPane.tsx
+  - Verify: ✅ build TS verde + 54 tests; overlay SnippetOverlay.tsx + CSS; wiring en TerminalPane (showSnippets state, handler real); backend get_cwd para {{cwd}} built-in
+  - Files: src/lib/snippets.ts, src/components/SnippetOverlay.tsx (+CSS), src-tauri/src/snippets.rs (get_cwd), TerminalPane.tsx
 - [ ] Task: Criterio de salida Fase 2
   - Acceptance: los 6 success criteria de SPEC-blocks.md (bloques navegables, rerun, copy, snippets con variables, TUI intactas, tests verdes)
   - Verify: uso real por Felipe

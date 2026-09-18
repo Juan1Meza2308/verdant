@@ -24,7 +24,8 @@ pub fn run() {
             commands::close_terminal,
             commands::get_config,
             commands::debug_log,
-            snippets::get_snippets
+            snippets::get_snippets,
+            snippets::get_cwd
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

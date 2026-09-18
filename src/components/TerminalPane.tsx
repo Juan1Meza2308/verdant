@@ -8,6 +8,8 @@ import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { listen } from "@tauri-apps/api/event";
 import { onAction } from "../lib/actions";
 import { getTheme, subscribeTheme, themeToXterm } from "../lib/theme";
+import { SnippetOverlay } from "./SnippetOverlay";
+import "./SnippetOverlay.css";
 import {
   MAX_OSC133_TAIL,
   parseOsc133,
@@ -71,6 +73,7 @@ export function TerminalPane({ active = true }: { active?: boolean }) {
   const activeRef = useRef(active);
   activeRef.current = active;
   const [searching, setSearching] = useState(false);
+  const [showSnippets, setShowSnippets] = useState(false);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -419,8 +422,7 @@ export function TerminalPane({ active = true }: { active?: boolean }) {
   };
   blockHandlers.current.snippets = () => {
     if (!activeRef.current) return;
-    // Stub Fase 2 tarea 8: el overlay de snippets se conectará aquí.
-    void invoke("debug_log", { msg: "[snippets] action triggered (stub)" });
+    setShowSnippets(true);
   };
 
   useEffect(() => {
@@ -456,6 +458,12 @@ export function TerminalPane({ active = true }: { active?: boolean }) {
             }
           }}
           onClose={closeSearch}
+        />
+      )}
+      {showSnippets && (
+        <SnippetOverlay
+          onClose={() => setShowSnippets(false)}
+          paste={(text) => termRef.current?.paste(text)}
         />
       )}
     </div>
