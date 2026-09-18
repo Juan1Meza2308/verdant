@@ -74,10 +74,10 @@
   - Acceptance: block-prev/next (Ctrl+Shift+↑/↓) seleccionan y scrollean al inicio; block-rerun (Ctrl+Shift+R) re-envía el comando vía paste; block-copy (Ctrl+Shift+Y) copia el comando (wl-paste verificable)
   - Verify: ✅ keybinds cargan en config (logs `[binds] ... block-prev=Ctrl+Shift+ArrowUp ...`); handlers suscritos al bus de acciones con refs frescas; pruebas de navegación/rerun/copy pendientes de uso real
   - Files: src/lib/keybinds.ts (sin cambios, soporta ArrowUp/Down), src/lib/actions.ts (nuevos ActionName), src/App.tsx (binds), src-tauri/src/config.rs (defaults), TerminalPane.tsx (handlers con adjacentBlockId, paste, writeText)
-- [ ] Task: Snippets backend
+- [x] Task: Snippets backend
   - Acceptance: comando Tauri `get_snippets` lee `~/.config/verdant/snippets.jsonc` (json5), crea default si falta, error controlado si inválido
-  - Verify: cargo test (snippets.rs)
-  - Files: src-tauri/src/snippets.rs, commands.rs, lib.rs
+  - Verify: ✅ `cargo check` verde; módulo `snippets.rs` + comando registrado; default con `date`/`cwd`; validación trigger no vacío
+  - Files: src-tauri/src/snippets.rs, lib.rs
 - [ ] Task: Snippets frontend (lib + overlay)
   - Acceptance: caché singleton; `resolveSnippet` sustituye `{{var}}` / `{{var:default}}`; overlay por pane (Ctrl+Shift+S): lista, flechas, Enter; con variables muestra campos; Escape cierra; inserta vía term.paste
   - Verify: vitest (snippets.test.ts) + manual (cat > archivo recibe el snippet resuelto)

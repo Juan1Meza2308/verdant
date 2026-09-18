@@ -1,6 +1,7 @@
 mod commands;
 mod config;
 mod pty;
+mod snippets;
 
 use commands::AppState;
 use std::sync::{Arc, Mutex};
@@ -22,7 +23,8 @@ pub fn run() {
             commands::resize_terminal,
             commands::close_terminal,
             commands::get_config,
-            commands::debug_log
+            commands::debug_log,
+            snippets::get_snippets
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
