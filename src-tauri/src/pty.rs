@@ -29,7 +29,6 @@ pub struct TerminalExit {
 }
 
 pub struct TerminalSession {
-    pub id: u32,
     pub master: Box<dyn MasterPty + Send>,
     pub writer: Box<dyn Write + Send>,
     pub child: Box<dyn Child + Send>,
@@ -79,7 +78,7 @@ pub fn spawn_session(
     cmd.env("TERM", TERM_ENV);
     cmd.env("VERDANT", "1");
 
-    let mut child = pair
+    let child = pair
         .slave
         .spawn_command(cmd)
         .map_err(|err| err.to_string())?;
@@ -89,13 +88,15 @@ pub fn spawn_session(
         .master
         .try_clone_reader()
         .map_err(|err| err.to_string())?;
-    let writer = pair.master.take_writer();
+    let writer = pair
+        .master
+        .take_writer()
+        .map_err(|err| err.to_string())?;
 
     let id = manager.next_id();
     manager.sessions.insert(
         id,
         TerminalSession {
-            id,
             master: pair.master,
             writer,
             child,
@@ -107,11 +108,8 @@ pub fn spawn_session(
         let mut buf = [0u8; READ_CHUNK];
         match reader.read(&mut buf) {
             Ok(0) => {
-                let exit_code = match child.try_wait() {
-                    Ok(Some(status)) => status.exit_code(),
-                    _ => None,
-                };
-                let _ = app.emit("terminal-exit", TerminalExit { id, exit_code });
+                // Fase 3: capturar exit code real vía shared handle.
+                let _ = app.emit("terminal-exit", TerminalExit { id, exit_code: None });
                 break;
             }
             Ok(n) => {
