@@ -73,9 +73,10 @@ function App() {
     bind("search", () => dispatchAction("search"));
 
     const handler = (event: KeyboardEvent) => {
-      // No interceptar mientras se renombra una tab.
+      // No interceptar mientras se renombra una tab o se escribe en el buscador
+      // (xterm usa un <textarea> propio; por eso NO filtramos por tagName acá).
       const target = event.target as HTMLElement | null;
-      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA")) return;
+      if (target && target.closest(".tab-rename, .search-input")) return;
       for (const binding of bindings) {
         if (binding.combo && comboMatches(event, binding.combo)) {
           event.preventDefault();

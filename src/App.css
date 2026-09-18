@@ -131,6 +131,7 @@ body,
 .pane-item {
   position: absolute;
   inset: 0;
+  display: flex;
 }
 
 .pane-hidden {
