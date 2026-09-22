@@ -132,6 +132,16 @@ fn strip_ansi_for_fts(input: &[u8]) -> String {
                 }
             }
         } else if c == '\x07' {
+            // Bell: se descarta.
+        } else if c == '\r' {
+            // Salto de línea (CRLF o CR suelto): normaliza a \n.
+            if chars.peek() == Some(&'\n') {
+                chars.next();
+            }
+            out.push('\n');
+        } else if c == '\x08' {
+            // Backspace del redibujo de línea: borra el último carácter emitido.
+            out.pop();
         } else {
             out.push(c);
         }
@@ -145,7 +155,7 @@ fn strip_ansi_for_fts(input: &[u8]) -> String {
 }
 
 /// Crea una nueva sesión y devuelve su ID.
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub async fn create_session(
     state: State<'_, crate::commands::AppState>,
     payload: CreateSessionPayload,
@@ -178,7 +188,7 @@ pub async fn create_session(
 }
 
 /// Añade un bloque (marker C) a la sesión.
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub async fn append_block(
     app: AppHandle,
     state: State<'_, crate::commands::AppState>,
@@ -229,7 +239,7 @@ pub async fn append_block(
 }
 
 /// Actualiza command + end_row de un bloque (marker C: comando terminado).
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub async fn update_block(
     app: AppHandle,
     state: State<'_, crate::commands::AppState>,
@@ -252,6 +262,19 @@ pub async fn update_block(
     .await
     .map_err(|e| format!("update_block: {e}"))?;
 
+    // Sincroniza el comando final en las filas FTS: sus chunks se indexaron
+    // con command vacío porque el marcador C llega después del output.
+    sqlx::query!(
+        "UPDATE search_fts SET command = ? WHERE session_id = ? AND block_id = (SELECT id FROM blocks WHERE session_id = ? AND seq = ?)",
+        command,
+        session_id,
+        session_id,
+        seq
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| format!("update_block fts: {e}"))?;
+
     let _ = app.emit(
         "session_update",
         SessionUpdate {
@@ -269,7 +292,7 @@ pub async fn update_block(
 }
 
 /// Añade chunk de output a un bloque (batch desde terminal-data).
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub async fn append_output(
     app: AppHandle,
     state: State<'_, crate::commands::AppState>,
@@ -357,7 +380,7 @@ pub async fn append_output(
 }
 
 /// Cierra la sesión (exit code).
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub async fn close_session(
     app: AppHandle,
     state: State<'_, crate::commands::AppState>,
@@ -468,7 +491,7 @@ pub async fn list_sessions(
 }
 
 /// Obtiene sesión completa con sus bloques (sin output completo).
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub async fn get_session(
     state: State<'_, crate::commands::AppState>,
     session_id: i64,
@@ -524,7 +547,7 @@ pub async fn get_session(
 }
 
 /// Obtiene output completo de un bloque (para restore scrollback).
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub async fn get_block_output(
     state: State<'_, crate::commands::AppState>,
     session_id: i64,
@@ -586,9 +609,15 @@ pub async fn search_sessions(
     .map_err(|e| format!("search_sessions: {e}"))?;
 
     let mut hits = Vec::new();
+    let mut seen = std::collections::HashSet::new();
     for row in rows {
         let session_id: i64 = row.get("session_id");
         let block_id: i64 = row.get("block_id");
+        // Un bloque tiene varias filas FTS (una por chunk de output): conserva
+        // la del mejor rank (las filas vienen ordenadas por rank).
+        if !seen.insert((session_id, block_id)) {
+            continue;
+        }
         let command: String = row.get("command");
         let mut snippet: String = row.get("output_text");
         if snippet.len() > 200 {
@@ -608,7 +637,7 @@ pub async fn search_sessions(
 }
 
 /// Actualiza título de sesión.
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub async fn update_session_title(
     state: State<'_, crate::commands::AppState>,
     session_id: i64,
@@ -623,7 +652,7 @@ pub async fn update_session_title(
 }
 
 /// Elimina sesión (cascada a blocks/output/fts).
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub async fn delete_session(
     state: State<'_, crate::commands::AppState>,
     session_id: i64,
@@ -663,6 +692,23 @@ mod tests {
     #[test]
     fn strip_ansi_descarta_bell() {
         assert_eq!(strip_ansi_for_fts(b"x\x07y"), "xy");
+    }
+
+    #[test]
+    fn strip_ansi_normaliza_cr_y_backspace() {
+        // Redibujo de readline/fish: CR suelto y \x08 (backspace) al escribir.
+        // El resultado no debe contener caracteres de control crudos y debe
+        // conservar el texto de la línea final.
+        let input = b"l\rs\r\x08ls\r ls\r";
+        let out = strip_ansi_for_fts(input);
+        assert!(!out.contains('\r') && !out.contains('\x08'));
+        assert!(out.contains("ls"));
+    }
+
+    #[test]
+    fn strip_ansi_colapsa_crlf() {
+        // CRLF de salida normal y CR suelto de redibujo → ambos a \n.
+        assert_eq!(strip_ansi_for_fts(b"a\r\nb\rc"), "a\nb\nc");
     }
 
     #[test]

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE search_fts SET command = ? WHERE session_id = ? AND block_id = (SELECT id FROM blocks WHERE session_id = ? AND seq = ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "9c15839c852f8561003ffd2c351c8d69557c03b117f68d096383701f33a32b74"
+}

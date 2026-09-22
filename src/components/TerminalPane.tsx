@@ -234,14 +234,22 @@ export function TerminalPane({
         if (restoreSession === undefined) {
           // Crear sesión persistente en DB (Fase 3)
           const cwd = await invoke<string>("get_cwd").catch(() => "~");
-          const sessionDbId = await invoke<number>("create_session", {
-            cols: terminal.cols,
-            rows: terminal.rows,
-            cwd,
-            shell: config.shell,
-          });
-          sessionDbIdRef.current = sessionDbId;
-          blockSeqRef.current = 0;
+          try {
+            const sessionDbId = await invoke<number>("create_session", {
+              payload: {
+                cols: terminal.cols,
+                rows: terminal.rows,
+                cwd,
+                shell: config.shell,
+              },
+            });
+            sessionDbIdRef.current = sessionDbId;
+            blockSeqRef.current = 0;
+            void invoke("debug_log", { msg: `[session] created id=${sessionDbId}` });
+          } catch (error) {
+            void invoke("debug_log", { msg: `[session] create FAIL ${String(error)}` });
+            throw error;
+          }
         }
       }
 
@@ -476,7 +484,9 @@ export function TerminalPane({
       terminal.focus();
     };
 
-    void start();
+    void start().catch((error) => {
+      void invoke("debug_log", { msg: `[start] ERROR ${String(error)}` });
+    });
 
     return () => {
       disposed = true;
