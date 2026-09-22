@@ -136,5 +136,16 @@
   - Nota: durante la verificación se corrigieron bugs de Tauri 2 (camelCase/payload), restore (tuple→SessionDetail), FTS (sanitización) y doble-writer (claim); commits 0dd3a22 y d0172a5
   - Files: — (verificación por Felipe; criterio 6 ya validado)
 
-## Fase 4: theming ryoku (pendiente)
+## Fase 4: theming ryoku (en curso)
+
+- [x] Task: Sistema de diseño estilo Warp (look & feel base)
+  - Acceptance: chrome y overlays con jerarquía, capas de superficie y micro-interacciones de resorte; terminal como hoja flotante; panel lateral de sesiones
+  - Verify: ✅ tsc limpio + vitest 68 verdes; tokens ampliados (canvas/surface-raised/ring/scrim/danger) en theme.ts; pestañas píldora con marcador de acento; paletas con backdrop blur; sidebar con refresco 4s y apertura en tab nueva; commit b4e67bb
+  - Files: src/lib/theme.ts, src/App.css, src/components/TabBar.tsx, src/components/{TerminalPane,SessionPicker,SnippetOverlay,SessionSidebar}.{tsx,css}, public/verdant.svg
+
+- [ ] Task: Generación de tema desde el wallpaper de ryoku (live-reload sin tocar componentes)
+  - Acceptance: paleta derivada de la imagen (dominantes → fondo/acento), CHROMA_* inyectado en `setTheme`; Fase 5 de ryoku
+  - Verify: pendiente
+  - Files: — (pendiente)
+
 ## Fase 5: ai opencode (pendiente)
