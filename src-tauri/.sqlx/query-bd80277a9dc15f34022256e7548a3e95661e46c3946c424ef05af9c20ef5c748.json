@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE blocks SET end_row = COALESCE(end_row, start_row) WHERE session_id = ? AND end_row IS NULL",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "bd80277a9dc15f34022256e7548a3e95661e46c3946c424ef05af9c20ef5c748"
+}

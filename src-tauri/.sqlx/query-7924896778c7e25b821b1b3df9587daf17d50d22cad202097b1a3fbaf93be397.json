@@ -1,0 +1,80 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT id, created_at, updated_at, cwd, shell, cols, rows, exit_code, title, env_json, scrollback_limit\n         FROM sessions WHERE id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "created_at",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "updated_at",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "cwd",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "shell",
+        "ordinal": 4,
+        "type_info": "Text"
+      },
+      {
+        "name": "cols",
+        "ordinal": 5,
+        "type_info": "Integer"
+      },
+      {
+        "name": "rows",
+        "ordinal": 6,
+        "type_info": "Integer"
+      },
+      {
+        "name": "exit_code",
+        "ordinal": 7,
+        "type_info": "Integer"
+      },
+      {
+        "name": "title",
+        "ordinal": 8,
+        "type_info": "Text"
+      },
+      {
+        "name": "env_json",
+        "ordinal": 9,
+        "type_info": "Text"
+      },
+      {
+        "name": "scrollback_limit",
+        "ordinal": 10,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "7924896778c7e25b821b1b3df9587daf17d50d22cad202097b1a3fbaf93be397"
+}

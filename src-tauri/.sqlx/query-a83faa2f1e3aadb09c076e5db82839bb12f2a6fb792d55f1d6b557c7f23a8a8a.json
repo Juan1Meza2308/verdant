@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        INSERT INTO blocks (session_id, seq, start_row, end_row, command, command_hash, created_at)\n        VALUES (?, ?, ?, ?, ?, ?, ?)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 7
+    },
+    "nullable": []
+  },
+  "hash": "a83faa2f1e3aadb09c076e5db82839bb12f2a6fb792d55f1d6b557c7f23a8a8a"
+}

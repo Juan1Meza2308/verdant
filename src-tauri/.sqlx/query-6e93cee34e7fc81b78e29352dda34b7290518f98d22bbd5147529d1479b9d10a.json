@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT cwd FROM sessions WHERE id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "cwd",
+        "ordinal": 0,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "6e93cee34e7fc81b78e29352dda34b7290518f98d22bbd5147529d1479b9d10a"
+}

@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT command FROM blocks WHERE id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "command",
+        "ordinal": 0,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "989657b8037beb22b15b7c2d15b48f581aaab5348ab74e38fc8b3f4a1cced0db"
+}

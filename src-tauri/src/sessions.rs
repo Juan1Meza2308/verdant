@@ -1,6 +1,5 @@
 //! Backend de sessions: comandos Tauri para persistir y buscar sesiones PTY.
 
-use crate::commands::AppState;
 use serde::{Deserialize, Serialize};
 use sqlx::Row;
 use tauri::State;
@@ -196,24 +195,28 @@ pub async fn append_block(
     Ok(block_id)
 }
 
-/// Actualiza end_row de un bloque (cuando llega siguiente A o se cierra).
+/// Actualiza command + end_row de un bloque (marker C: comando terminado).
 #[tauri::command]
-pub async fn update_block_end(
+pub async fn update_block(
     state: State<'_, crate::commands::AppState>,
     session_id: i64,
     seq: i64,
+    command: String,
     end_row: i64,
 ) -> Result<(), String> {
     let pool = &state.db;
+    let hash = command_hash(&command);
     sqlx::query!(
-        "UPDATE blocks SET end_row = ? WHERE session_id = ? AND seq = ?",
+        "UPDATE blocks SET command = ?, command_hash = ?, end_row = ? WHERE session_id = ? AND seq = ?",
+        command,
+        hash,
         end_row,
         session_id,
         seq
     )
     .execute(pool)
     .await
-    .map_err(|e| format!("update_block_end: {e}"))?;
+    .map_err(|e| format!("update_block: {e}"))?;
     Ok(())
 }
 

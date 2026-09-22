@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE blocks SET end_row = ? WHERE session_id = ? AND seq = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "a959562aadae055ff1caeba50f91c7db6c525fae8551e053b21095b5bc8266cc"
+}

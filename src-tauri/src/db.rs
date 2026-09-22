@@ -4,7 +4,6 @@ use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use sqlx::{Pool, Sqlite};
 use std::path::PathBuf;
 use std::str::FromStr;
-use anyhow::Result;
 
 /// Ruta por defecto de la DB: ~/.local/share/verdant/sessions.db
 pub fn db_path() -> PathBuf {

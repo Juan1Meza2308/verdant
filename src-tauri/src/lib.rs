@@ -39,7 +39,7 @@ pub fn run() {
             snippets::get_cwd,
             sessions::create_session,
             sessions::append_block,
-            sessions::update_block_end,
+            sessions::update_block,
             sessions::append_output,
             sessions::close_session,
             sessions::list_sessions,

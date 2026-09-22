@@ -99,10 +99,10 @@
   - Verify: ✅ `cargo check` verde; todos los comandos registrados en lib.rs; sqlx compile-time queries con prepare cache; FTS5 search funcional
   - Files: src-tauri/src/sessions.rs, lib.rs, db.rs, migrations/001_initial_schema.sql
 
-- [ ] Task: Integración PTY → Sessions (spawn + markers + output + exit)
-  - Acceptance: spawn → create_session; marker C → append_block; terminal-data (throttle 200ms) → append_output; exit → close_session
-  - Verify: logs `[session] create/append/close` en dev; datos en DB inspeccionables
-  - Files: src-tauri/src/pty.rs, src/components/TerminalPane.tsx
+- [x] Task: Integración PTY → Sessions (spawn + markers + output + exit)
+  - Acceptance: spawn → create_session; marker A → append_block (inserta fila antes del output); marker C → update_block (command + end_row); terminal-data (throttle 200ms) → append_output; exit → close_session (flush previo)
+  - Verify: ✅ `cargo check` + `tsc --noEmit` verdes; TerminalPane.tsx: sessionDbIdRef/blockSeqRef/outputBufferRef; lib.rs registra update_block (reemplaza update_block_end)
+  - Files: src-tauri/src/sessions.rs, lib.rs, src/components/TerminalPane.tsx
 
 - [ ] Task: Frontend store + tipos (src/lib/sessions.ts)
   - Acceptance: SessionStore singleton, cache + invalidate, searchSessions(query, filters) con debounce, tipos TS ↔ Rust

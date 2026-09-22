@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO search_fts (session_id, block_id, command, output_text, cwd, tags) VALUES (?, ?, ?, ?, ?, '')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "ea89392216093eb42b2e89bdc9170a82930ff1a42fd4931f8ce2f0376fe850ff"
+}

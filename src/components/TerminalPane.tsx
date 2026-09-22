@@ -70,6 +70,10 @@ export function TerminalPane({ active = true }: { active?: boolean }) {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const blocksRef = useRef<BlocksState | null>(null);
   const overlayRef = useRef<BlockOverlay | null>(null);
+  const sessionDbIdRef = useRef<number | null>(null);
+  const blockSeqRef = useRef<number>(0);
+  const outputBufferRef = useRef<number[]>([]);
+  const outputFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeRef = useRef(active);
   activeRef.current = active;
   const [searching, setSearching] = useState(false);
@@ -133,6 +137,18 @@ export function TerminalPane({ active = true }: { active?: boolean }) {
         return;
       }
       sessionId = id;
+
+      // Crear sesión persistente en DB (Fase 3)
+      const cwd = await invoke<string>("get_cwd").catch(() => "~");
+      const sessionDbId = await invoke<number>("create_session", {
+        cols: terminal.cols,
+        rows: terminal.rows,
+        cwd,
+        shell: config.shell,
+      });
+      sessionDbIdRef.current = sessionDbId;
+      blockSeqRef.current = 0;
+
       const blocks = new BlocksState();
       blocksRef.current = blocks;
       const overlay = new BlockOverlay(terminal);
@@ -176,6 +192,20 @@ export function TerminalPane({ active = true }: { active?: boolean }) {
             // El bloque anterior quedó finalizado por este A: recalcula su alto.
             overlay.updateBlock(blocks.blocks[blocks.blocks.length - 2]);
           }
+          // Fase 3: insertar bloque en DB (comando aún vacío; se completa en C).
+          // El row debe existir antes de su output para poder adjuntar chunks.
+          const dbId = sessionDbIdRef.current;
+          if (dbId !== null) {
+            blockSeqRef.current += 1;
+            const seq = blockSeqRef.current;
+            void invoke("append_block", {
+              session_id: dbId,
+              seq,
+              start_row: row,
+              end_row: null,
+              command: "",
+            });
+          }
           void invoke("debug_log", {
             msg: `[blocks] A row=${row} n=${blocks.blocks.length}`,
           });
@@ -184,6 +214,17 @@ export function TerminalPane({ active = true }: { active?: boolean }) {
           const current = blocks.current;
           if (marker === "C" && current) {
             overlay.updateBlock(current);
+            // Fase 3: completar command + end_row del bloque abierto.
+            const dbId = sessionDbIdRef.current;
+            if (dbId !== null) {
+              const seq = blockSeqRef.current;
+              void invoke("update_block", {
+                session_id: dbId,
+                seq,
+                command: current.command,
+                end_row: row,
+              });
+            }
             void invoke("debug_log", {
               msg: `[blocks] C row=${row} cmd=${current.command}`,
             });
@@ -260,7 +301,29 @@ export function TerminalPane({ active = true }: { active?: boolean }) {
       const unData = await listen<TerminalDataEvent>("terminal-data", (event) => {
         if (event.payload.id === id) {
           // UTF-8 rematado (un multibyte puede llegar partido entre chunks).
-          pushChunk(decoder.decode(base64ToBytes(event.payload.data), { stream: true }));
+          const text = decoder.decode(base64ToBytes(event.payload.data), { stream: true });
+          pushChunk(text);
+
+          // Fase 3: persistir output en DB (throttle 200ms)
+          const dbId = sessionDbIdRef.current;
+          if (dbId !== null && blockSeqRef.current > 0) {
+            const data = base64ToBytes(event.payload.data);
+            outputBufferRef.current.push(...data);
+            if (!outputFlushTimerRef.current) {
+              outputFlushTimerRef.current = window.setTimeout(() => {
+                const buffered = outputBufferRef.current;
+                outputBufferRef.current = [];
+                outputFlushTimerRef.current = null;
+                if (buffered.length > 0) {
+                  void invoke("append_output", {
+                    session_id: dbId,
+                    block_seq: blockSeqRef.current,
+                    data: Array.from(buffered),
+                  });
+                }
+              }, 200);
+            }
+          }
         }
       });
       const unExit = await listen<TerminalExitEvent>("terminal-exit", (event) => {
@@ -268,6 +331,30 @@ export function TerminalPane({ active = true }: { active?: boolean }) {
           terminal.write(
             `\r\n\x1b[90m[verdant] proceso terminado (código ${event.payload.exit_code ?? "?"})\x1b[0m\r\n`,
           );
+          // Fase 3: cerrar sesión en DB
+          const dbId = sessionDbIdRef.current;
+          if (dbId !== null) {
+            // Flush any pending output
+            if (outputBufferRef.current.length > 0) {
+              const buffered = [...outputBufferRef.current];
+              outputBufferRef.current = [];
+              if (outputFlushTimerRef.current) {
+                clearTimeout(outputFlushTimerRef.current);
+                outputFlushTimerRef.current = null;
+              }
+              if (blockSeqRef.current > 0) {
+                void invoke("append_output", {
+                  session_id: dbId,
+                  block_seq: blockSeqRef.current,
+                  data: Array.from(buffered),
+                });
+              }
+            }
+            void invoke("close_session", {
+              session_id: dbId,
+              exit_code: event.payload.exit_code,
+            });
+          }
         }
       });
       disposers.push(unData, unExit);
@@ -280,6 +367,10 @@ export function TerminalPane({ active = true }: { active?: boolean }) {
     return () => {
       disposed = true;
       disposers.forEach((dispose) => dispose());
+      if (outputFlushTimerRef.current) {
+        clearTimeout(outputFlushTimerRef.current);
+        outputFlushTimerRef.current = null;
+      }
       if (sessionId !== null) {
         void invoke("close_terminal", { id: sessionId });
       }
@@ -290,6 +381,10 @@ export function TerminalPane({ active = true }: { active?: boolean }) {
       fitRef.current = null;
       searchRef.current = null;
       blocksRef.current = null;
+      sessionDbIdRef.current = null;
+      blockSeqRef.current = 0;
+      outputBufferRef.current = [];
+      outputFlushTimerRef.current = null;
     };
   }, []);
 

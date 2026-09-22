@@ -1,0 +1,62 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT id, session_id, seq, start_row, end_row, command, command_hash, created_at\n         FROM blocks WHERE session_id = ? ORDER BY seq",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "session_id",
+        "ordinal": 1,
+        "type_info": "Integer"
+      },
+      {
+        "name": "seq",
+        "ordinal": 2,
+        "type_info": "Integer"
+      },
+      {
+        "name": "start_row",
+        "ordinal": 3,
+        "type_info": "Integer"
+      },
+      {
+        "name": "end_row",
+        "ordinal": 4,
+        "type_info": "Integer"
+      },
+      {
+        "name": "command",
+        "ordinal": 5,
+        "type_info": "Text"
+      },
+      {
+        "name": "command_hash",
+        "ordinal": 6,
+        "type_info": "Text"
+      },
+      {
+        "name": "created_at",
+        "ordinal": 7,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "02a7c1275282fc458fbdaa0d4f193c599ed2dcf983cb17e697cc9a782dd99919"
+}

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO block_output (block_id, seq, data, created_at) VALUES (?, ?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "6195c0353eacfbd1c9e7f0b1ff1b441f39d77143f784679ddc1d14e6f10d9267"
+}
