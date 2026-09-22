@@ -97,4 +97,16 @@ export class BlocksState {
     }
     // B: command start, no payload in native fish; nothing to track here.
   }
+
+  /**
+   * Rebuild the state from persisted blocks (session restore).
+   * Seed ids are the DB seqs so navigation and DB sequence stay aligned;
+   * the next live "A" continues at seed.length + 1.
+   */
+  restore(seed: Block[]): void {
+    this.blocks.length = 0;
+    for (const block of seed) this.blocks.push(block);
+    this.current = seed.length > 0 ? seed[seed.length - 1] : null;
+    this.nextId = seed.length + 1;
+  }
 }

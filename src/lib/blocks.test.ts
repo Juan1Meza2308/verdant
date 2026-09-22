@@ -96,6 +96,34 @@ describe("BlocksState", () => {
     expect(s.blocks[0].command).toBe("echo hi");
     expect(s.blocks[0].endRow).toBe(4);
   });
+
+  it("restore siembra bloques por seq y continúa `current` en el último", () => {
+    const s = new BlocksState();
+    s.restore([
+      { id: 1, startRow: 0, endRow: 9, command: "ls" },
+      { id: 2, startRow: 11, endRow: 14, command: "git push" },
+    ]);
+    expect(s.blocks).toHaveLength(2);
+    expect(s.current).toBe(s.blocks[1]);
+    expect(s.current).toMatchObject({ id: 2, startRow: 11, endRow: 14 });
+  });
+
+  it("restore deja que el siguiente A continúe la secuencia (seq + 1)", () => {
+    const s = new BlocksState();
+    s.restore([{ id: 1, startRow: 0, endRow: 5, command: "a" }]);
+    s.onMarker("A", 7);
+    expect(s.blocks[1]).toMatchObject({ id: 2, startRow: 7, endRow: null });
+  });
+
+  it("restore vacío deja estado limpio y reinicia la secuencia", () => {
+    const s = new BlocksState();
+    s.onMarker("A", 0);
+    s.restore([]);
+    expect(s.blocks).toHaveLength(0);
+    expect(s.current).toBeNull();
+    s.onMarker("A", 2);
+    expect(s.blocks[0]).toMatchObject({ id: 1, startRow: 2 });
+  });
 });
 
 describe("navegación sobre bloques", () => {

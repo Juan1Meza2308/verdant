@@ -87,10 +87,14 @@ export class BlockOverlay {
     entry.decoration = decoration;
   }
 
-  /** Se llama al procesar A: crea el marker en la fila del prompt (cursor). */
-  openBlock(block: Block): void {
+  /**
+   * Se llama al procesar A: crea el marker en la fila del prompt (cursor).
+   * En restore, `cursorYOffset` ancla la fila del prompt histórico restando
+   * el alto del bloque de la posición actual del cursor (fin del output).
+   */
+  openBlock(block: Block, cursorYOffset = 0): void {
     const height = this.heightOf(block);
-    const marker = this.terminal.registerMarker(0);
+    const marker = this.terminal.registerMarker(cursorYOffset);
     const decoration = this.registerDecoration({ id: block.id, marker, height });
     if (!decoration) {
       marker.dispose();

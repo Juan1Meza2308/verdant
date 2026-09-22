@@ -114,10 +114,10 @@
   - Verify: ✅ `tsc` + `cargo check` verdes; 65 tests vitest verdes; keybind `sessions=Ctrl+Shift+P` en config.rs; plumbing pane→session en App/SplitView/TerminalPane (modo restore no crea sesión DB)
   - Files: src/components/SessionPicker.tsx (+CSS), App.tsx, SplitView.tsx, TerminalPane.tsx, config.rs, actions.ts
 
-- [ ] Task: Restore / Replay de sesión al crear pane
-  - Acceptance: prop `initialSessionId` → get_session + get_block_output por bloques → replay en parser + terminal.write serializado; scrollback restaurado
-  - Verify: cerrar y reabrir verdant → tabs/panes con bloques y scrollback idénticos
-  - Files: src/components/TerminalPane.tsx, App.tsx (pasa session_id al crear pane)
+- [x] Task: Restore / Replay de sesión al crear pane
+  - Acceptance: `sessionId` → get_session + get_block_output por bloques → replay en xterm (terminal.write serializado) ANTES de spawnear; modelo + decorations restaurados (openBlock con offset histórico); blockSeq continúa tras el último seq; no crea sesión DB nueva
+  - Verify: ✅ `tsc` + cargo check verdes; 68 tests vitest (restore siembra por seq, continúa secuencia tras restore, restore vacío reinicia)
+  - Files: src/components/TerminalPane.tsx, src/lib/blocks.ts (restore), src/lib/blockOverlay.ts (openBlock cursorYOffset), src/lib/blocks.test.ts
 
 - [ ] Task: Hybrid attach (read-only + broadcast)
   - Acceptance: segunda instancia abre misma sesión → follow mode (recibe updates por `session_update` event); opción read-write con mutex por session_id

@@ -17,6 +17,7 @@ import {
 } from "../lib/osc133";
 import { BlocksState, adjacentBlockId } from "../lib/blocks";
 import { BlockOverlay } from "../lib/blockOverlay";
+import { getBlockOutput, getSessionDetail } from "../lib/sessions";
 import "@xterm/xterm/css/xterm.css";
 import "./TerminalPane.css";
 
@@ -136,6 +137,52 @@ export function TerminalPane({
       });
       disposers.push(offTheme);
 
+      const blocks = new BlocksState();
+      blocksRef.current = blocks;
+      const overlay = new BlockOverlay(terminal);
+      overlayRef.current = overlay;
+
+      // Modo restore: reanudar el historial ANTES de spawnear, para que el
+      // prompt nuevo aparezca debajo del contenido restaurado (sin intercalar).
+      if (restoreSession !== undefined) {
+        sessionDbIdRef.current = restoreSession;
+        let maxSeq = 0;
+        try {
+          const detail = await getSessionDetail(restoreSession);
+          if (detail) {
+            blocks.restore(
+              detail.blocks.map((b) => ({
+                id: b.seq,
+                startRow: b.start_row,
+                endRow: b.end_row,
+                command: b.command,
+              })),
+            );
+            for (const b of detail.blocks) {
+              maxSeq = Math.max(maxSeq, b.seq);
+              const bytes = await getBlockOutput(restoreSession, b.seq);
+              if (disposed || !bytes || bytes.length === 0) continue;
+              // Al terminar de escribir el bloque el cursor está en su última
+              // fila: la decoración se ancla al prompt histórico restando el
+              // alto del bloque a la posición actual.
+              await new Promise<void>((resolve) => {
+                if (disposed) return resolve();
+                terminal.write(bytes, () => resolve());
+              });
+              if (disposed) return;
+              const height = Math.max(1, (b.end_row ?? b.start_row) - b.start_row + 1);
+              overlay.openBlock(
+                { id: b.seq, startRow: b.start_row, endRow: b.end_row, command: b.command },
+                height - 1,
+              );
+            }
+          }
+        } catch (error) {
+          void invoke("debug_log", { msg: `[restore] fallo ${String(error)}` });
+        }
+        blockSeqRef.current = maxSeq;
+      }
+
       const id = await invoke<number>("spawn_terminal", {
         cols: terminal.cols,
         rows: terminal.rows,
@@ -146,11 +193,7 @@ export function TerminalPane({
       }
       ptyId = id;
 
-      if (restoreSession !== undefined) {
-        // Modo restore: reanuda una sesión persistida (no crea sesión DB nueva).
-        sessionDbIdRef.current = restoreSession;
-        blockSeqRef.current = 0; // Fase 6: se recalcula con los bloques restaurados.
-      } else {
+      if (restoreSession === undefined) {
         // Crear sesión persistente en DB (Fase 3)
         const cwd = await invoke<string>("get_cwd").catch(() => "~");
         const sessionDbId = await invoke<number>("create_session", {
@@ -162,11 +205,6 @@ export function TerminalPane({
         sessionDbIdRef.current = sessionDbId;
         blockSeqRef.current = 0;
       }
-
-      const blocks = new BlocksState();
-      blocksRef.current = blocks;
-      const overlay = new BlockOverlay(terminal);
-      overlayRef.current = overlay;
 
       // Pipeline OSC 133: bytes → texto (streaming) → segmentos → escrituras
       // serializadas en xterm (callbacks) → marcadores → modelo de bloques.
