@@ -104,10 +104,10 @@
   - Verify: ✅ `cargo check` + `tsc --noEmit` verdes; TerminalPane.tsx: sessionDbIdRef/blockSeqRef/outputBufferRef; lib.rs registra update_block (reemplaza update_block_end)
   - Files: src-tauri/src/sessions.rs, lib.rs, src/components/TerminalPane.tsx
 
-- [ ] Task: Frontend store + tipos (src/lib/sessions.ts)
+- [x] Task: Frontend store + tipos (src/lib/sessions.ts)
   - Acceptance: SessionStore singleton, cache + invalidate, searchSessions(query, filters) con debounce, tipos TS ↔ Rust
-  - Verify: vitest (store, search debounce)
-  - Files: src/lib/sessions.ts (+test)
+  - Verify: ✅ `tsc` verde; 11 tests vitest (debounce, search vacío→no toca API, limit, sessionLabel, formatSessionTime); tipos espejo de serde
+  - Files: src/lib/sessions.ts, src/lib/sessions.test.ts
 
 - [ ] Task: SessionPicker Overlay (Ctrl+Shift+P)
   - Acceptance: lista paginada virtualizada, búsqueda en vivo (debounce 150ms), preview lateral (últimos bloques), Enter → attach, Escape cierra
