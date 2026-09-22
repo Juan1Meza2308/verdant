@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { SplitView } from "./components/SplitView";
 import { SessionPicker } from "./components/SessionPicker";
+import { SessionSidebar } from "./components/SessionSidebar";
 import { TabBar, type Tab } from "./components/TabBar";
 import type { VerdantConfig } from "./components/TerminalPane";
 import { dispatchAction } from "./lib/actions";
@@ -35,6 +36,7 @@ function App() {
   const [activeTab, setActiveTab] = useState(1);
   const [config, setConfig] = useState<VerdantConfig | null>(null);
   const [showSessions, setShowSessions] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   /** Pane id (layout) → id de sesión DB (para restore/attach). */
   const paneSessionsRef = useRef(new Map<PaneRef, number>());
 
@@ -239,22 +241,33 @@ function App() {
         onCreate={createTab}
         onClose={closeTab}
         onRename={renameTab}
+        sidebarOpen={sidebarOpen}
+        onToggleSidebar={() => setSidebarOpen((open) => !open)}
       />
-      <div className="pane-stack">
-        {tabs.map((tab) => (
-          <div
-            key={tab.id}
-            className={`pane-item${tab.id === activeTab ? " pane-active" : " pane-hidden"}`}
-          >
-            <SplitView
-              layout={tab.layout}
-              tabActive={tab.id === activeTab}
-              activePane={tab.activePane}
-              onFocusPane={(paneId) => focusPane(tab.id, paneId)}
-              getSessionId={(paneId) => paneSessionsRef.current.get(paneId)}
-            />
-          </div>
-        ))}
+      <div className="app-main">
+        {sidebarOpen && (
+          <SessionSidebar
+            key={tabs.length}
+            onAttach={attachSession}
+            onClose={() => setSidebarOpen(false)}
+          />
+        )}
+        <div className="pane-stack">
+          {tabs.map((tab) => (
+            <div
+              key={tab.id}
+              className={`pane-item${tab.id === activeTab ? " pane-active" : " pane-hidden"}`}
+            >
+              <SplitView
+                layout={tab.layout}
+                tabActive={tab.id === activeTab}
+                activePane={tab.activePane}
+                onFocusPane={(paneId) => focusPane(tab.id, paneId)}
+                getSessionId={(paneId) => paneSessionsRef.current.get(paneId)}
+              />
+            </div>
+          ))}
+        </div>
       </div>
       {showSessions && (
         <SessionPicker onAttach={attachSession} onClose={() => setShowSessions(false)} />

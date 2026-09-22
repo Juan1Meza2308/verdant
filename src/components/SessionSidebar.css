@@ -1,0 +1,144 @@
+/* --- Barra lateral de sesiones --- */
+
+.session-sidebar {
+  width: 248px;
+  flex-shrink: 0;
+  background: var(--v-canvas);
+  border-right: 1px solid var(--v-border);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 12px 8px 10px;
+  animation: sidebar-in 180ms var(--v-ease-out);
+}
+
+@keyframes sidebar-in {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.session-sidebar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 8px 10px;
+}
+
+.session-sidebar-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--v-fg-dim);
+}
+
+.session-sidebar-close {
+  border: none;
+  background: transparent;
+  color: var(--v-fg-dim);
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  transition:
+    background 100ms var(--v-ease-out),
+    color 100ms var(--v-ease-out);
+}
+
+.session-sidebar-close:hover {
+  background: color-mix(in srgb, white 8%, transparent);
+  color: var(--v-fg);
+}
+
+.session-sidebar-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-right: 2px;
+}
+
+.sidebar-session {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--v-fg);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 100ms var(--v-ease-out),
+    transform 100ms var(--v-ease-out);
+}
+
+.sidebar-session:hover {
+  background: color-mix(in srgb, white 5%, transparent);
+}
+
+.sidebar-session:active {
+  transform: scale(0.985);
+}
+
+.sidebar-session-label {
+  font-family: var(--v-font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--v-fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-session-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 10.5px;
+  color: var(--v-fg-dim);
+}
+
+.sidebar-session-cwd {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-session-time {
+  flex-shrink: 0;
+}
+
+.session-sidebar-empty {
+  margin: 8px 4px;
+  padding: 20px 12px;
+  text-align: center;
+  color: var(--v-fg-dim);
+  font-size: 12px;
+  line-height: 1.55;
+  border: 1px dashed var(--v-border);
+  border-radius: 10px;
+}
+
+.session-sidebar-foot {
+  border-top: 1px solid var(--v-border);
+  padding: 10px 8px 2px;
+  font-size: 10.5px;
+  color: var(--v-fg-dim);
+  text-align: center;
+  letter-spacing: 0.02em;
+}

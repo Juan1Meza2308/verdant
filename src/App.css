@@ -1,34 +1,101 @@
+/* --- Base --- */
+
+html {
+  color-scheme: dark;
+}
+
 html,
 body,
 #root {
   height: 100%;
   margin: 0;
-  background: var(--v-bg);
+  background: var(--v-canvas);
   color: var(--v-fg);
-  font-family: "Inter", system-ui, sans-serif;
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
 }
 
 * {
   box-sizing: border-box;
 }
 
+::selection {
+  background: var(--v-selection);
+}
+
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--v-ring);
+  outline-offset: 2px;
+}
+
+:root {
+  /* Tipografía mono compartida (terminal y overlays). */
+  --v-font-mono: "JetBrains Mono", "Cascadia Code", "Fira Code", monospace;
+  /* Curvas de movimiento: salida suave y pop con ligera inercia. */
+  --v-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --v-ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Scrollbars finos estilo píldora (WebKitGTK también los respeta). */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.24);
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 .app-shell {
   height: 100%;
   display: flex;
   flex-direction: column;
+  background: var(--v-canvas);
 }
 
-/* --- Tab bar --- */
+.app-main {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+/* --- Tab bar: pestañas flotantes --- */
 
 .tab-bar {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   gap: 4px;
-  padding: 6px 8px 0;
-  background: var(--v-surface);
-  border-bottom: 1px solid var(--v-border);
+  padding: 9px 12px;
+  background: var(--v-canvas);
   user-select: none;
   flex-shrink: 0;
+  position: relative;
+}
+
+/* Hairline inferior muy sutil para separar el chrome del contenido. */
+.tab-bar::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 0;
+  height: 1px;
+  background: var(--v-border);
 }
 
 .tab-item {
@@ -36,18 +103,42 @@ body,
   align-items: center;
   gap: 2px;
   min-width: 0;
-  max-width: 220px;
-  border-radius: 8px 8px 0 0;
-  background: rgba(255, 255, 255, 0.03);
-  transition: background 120ms ease;
+  max-width: 240px;
+  padding: 0 2px 0 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--v-fg-dim);
+  transition:
+    background 140ms var(--v-ease-out),
+    color 140ms var(--v-ease-out),
+    box-shadow 140ms var(--v-ease-out);
+  position: relative;
 }
 
 .tab-item:hover {
-  background: rgba(255, 255, 255, 0.07);
+  background: color-mix(in srgb, white 6%, transparent);
+  color: var(--v-fg);
 }
 
 .tab-item.tab-active {
-  background: var(--v-bg);
+  background: var(--v-surface-raised);
+  color: var(--v-fg);
+  box-shadow:
+    inset 0 0 0 1px var(--v-border),
+    0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+/* Marcador de acento bajo la pestaña activa. */
+.tab-item.tab-active::after {
+  content: "";
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 2px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--v-accent);
+  opacity: 0.85;
 }
 
 .tab-title {
@@ -55,68 +146,112 @@ body,
   min-width: 0;
   border: none;
   background: transparent;
-  color: var(--v-fg-dim);
+  color: inherit;
   font: inherit;
   font-size: 13px;
-  padding: 7px 4px 7px 10px;
+  font-weight: 450;
+  letter-spacing: 0.01em;
+  padding: 6px 4px 6px 12px;
   cursor: pointer;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.tab-title:focus-visible {
-  outline: 2px solid var(--v-accent);
-  outline-offset: -2px;
-  border-radius: 6px;
-}
-
-.tab-active .tab-title {
-  color: var(--v-fg);
+  border-radius: 7px;
 }
 
 .tab-close {
   border: none;
   background: transparent;
   color: var(--v-fg-dim);
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1;
-  padding: 4px 8px;
-  border-radius: 6px;
+  width: 22px;
+  height: 22px;
+  margin-right: 3px;
+  border-radius: 7px;
   cursor: pointer;
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  transition:
+    opacity 100ms var(--v-ease-out),
+    background 100ms var(--v-ease-out),
+    color 100ms var(--v-ease-out);
+}
+
+.tab-item:hover .tab-close,
+.tab-item.tab-active .tab-close {
+  opacity: 1;
 }
 
 .tab-close:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: #ff7b72;
+  background: color-mix(in srgb, var(--v-danger) 18%, transparent);
+  color: var(--v-danger);
 }
 
 .tab-new {
   border: none;
   background: transparent;
   color: var(--v-fg-dim);
-  font-size: 16px;
-  padding: 4px 10px;
-  margin-bottom: 4px;
-  border-radius: 6px;
+  width: 26px;
+  height: 26px;
+  margin-left: 2px;
+  border-radius: 8px;
+  font-size: 17px;
+  line-height: 1;
   cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition:
+    background 120ms var(--v-ease-out),
+    color 120ms var(--v-ease-out);
 }
 
 .tab-new:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: color-mix(in srgb, white 9%, transparent);
+  color: var(--v-fg);
+}
+
+.tab-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-left: 8px;
+}
+
+.tab-action-btn {
+  border: none;
+  background: transparent;
+  color: var(--v-fg-dim);
+  width: 30px;
+  height: 26px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition:
+    background 120ms var(--v-ease-out),
+    color 120ms var(--v-ease-out);
+}
+
+.tab-action-btn:hover,
+.tab-action-btn.active {
+  background: color-mix(in srgb, var(--v-accent) 14%, transparent);
   color: var(--v-fg);
 }
 
 .tab-rename {
   flex: 1;
   min-width: 0;
-  border: 1px solid var(--v-accent);
+  border: 1px solid var(--v-ring);
   background: var(--v-bg);
   color: var(--v-fg);
   font: inherit;
   font-size: 13px;
-  padding: 4px 6px;
-  border-radius: 6px;
+  padding: 5px 8px;
+  margin: 2px;
+  border-radius: 7px;
   outline: none;
 }
 
@@ -125,6 +260,7 @@ body,
 .pane-stack {
   flex: 1;
   position: relative;
+  min-width: 0;
   min-height: 0;
 }
 
@@ -164,7 +300,7 @@ body,
   display: flex;
   min-width: 0;
   min-height: 0;
-  background: var(--v-bg);
+  background: var(--v-canvas);
 }
 
 .split-leaf {
@@ -175,12 +311,13 @@ body,
   position: relative;
 }
 
-/* Anillo de foco sutil sobre el pane activo. */
-.pane-focused::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  box-shadow: inset 0 0 0 1px var(--v-accent);
-  opacity: 0.55;
+/* --- Movimiento respetuoso --- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

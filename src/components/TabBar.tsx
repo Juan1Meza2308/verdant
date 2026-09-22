@@ -12,11 +12,23 @@ interface TabBarProps {
   onCreate: () => void;
   onClose: (id: number) => void;
   onRename: (id: number, title: string) => void;
+  /** Panel lateral de sesiones (toggle desde el icono). */
+  sidebarOpen: boolean;
+  onToggleSidebar: () => void;
 }
 
 const NEW_TAB_LABEL = "+";
 
-export function TabBar({ tabs, activeTab, onSelect, onCreate, onClose, onRename }: TabBarProps) {
+export function TabBar({
+  tabs,
+  activeTab,
+  onSelect,
+  onCreate,
+  onClose,
+  onRename,
+  sidebarOpen,
+  onToggleSidebar,
+}: TabBarProps) {
   return (
     <nav className="tab-bar" role="tablist" aria-label="Tabs de verdant">
       {tabs.map((tab) => (
@@ -38,6 +50,30 @@ export function TabBar({ tabs, activeTab, onSelect, onCreate, onClose, onRename 
       >
         {NEW_TAB_LABEL}
       </button>
+      <div className="tab-actions">
+        <button
+          type="button"
+          className={`tab-action-btn${sidebarOpen ? " active" : ""}`}
+          onClick={onToggleSidebar}
+          aria-label="Alternar panel de sesiones"
+          aria-pressed={sidebarOpen}
+          title="Panel de sesiones"
+        >
+          <svg
+            width="15"
+            height="15"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+            aria-hidden="true"
+          >
+            <rect x="1.5" y="2.5" width="13" height="11" rx="2.2" />
+            <line x1="6" y1="2.5" x2="6" y2="13.5" />
+          </svg>
+        </button>
+      </div>
     </nav>
   );
 }

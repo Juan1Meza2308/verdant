@@ -5,12 +5,18 @@
 import type { ITheme } from "@xterm/xterm";
 
 export interface VerdantTheme {
-  /** Fondo principal del shell. */
+  /** Fondo de la ventana: la capa más profunda, detrás de terminales y chrome. */
+  canvas: string;
+  /** Fondo principal del shell (la hoja del terminal). */
   background: string;
-  /** Fondo elevado (barra de tabs, overlays, superficies). */
+  /** Fondo elevado (barra de tabs, superficies intermedias). */
   surface: string;
+  /** Superficie elevada: overlays, popovers, pestaña activa. */
+  surfaceRaised: string;
   /** Borde sutil entre superficies. */
   border: string;
+  /** Anillo de foco / acento translúcido (focus-visible, pane activo). */
+  ring: string;
   /** Texto principal. */
   foreground: string;
   /** Texto secundario/dim. */
@@ -19,6 +25,10 @@ export interface VerdantTheme {
   accent: string;
   /** Fondo de selección de texto/terminal. */
   selectionBackground: string;
+  /** Telón semiopaco para overlays (scrim). */
+  scrim: string;
+  /** Color de peligro (cerrar, acciones destructivas). */
+  danger: string;
   /** Paleta ANSI de 16 colores (normal + brillante). */
   ansi: [
     string, string, string, string, string, string, string, string,
@@ -45,13 +55,18 @@ const ANSI_GITHUB_EQUIV = {
 
 /** Tema por defecto: oscuro, frío, acento menta (vibra con la estética ryoku). */
 export const baseTheme: VerdantTheme = {
-  background: "#0b0e14",
-  surface: "#10141d",
-  border: "rgba(255, 255, 255, 0.06)",
-  foreground: "#d5dae5",
-  foregroundDim: "#9aa4b5",
+  canvas: "#080a0f",
+  background: "#0d1017",
+  surface: "#12161f",
+  surfaceRaised: "#181d29",
+  border: "rgba(255, 255, 255, 0.07)",
+  ring: "rgba(94, 234, 212, 0.45)",
+  foreground: "#e2e8f0",
+  foregroundDim: "#8b93a7",
   accent: "#5eead4",
-  selectionBackground: "rgba(94, 234, 212, 0.28)",
+  selectionBackground: "rgba(94, 234, 212, 0.25)",
+  scrim: "rgba(4, 6, 9, 0.62)",
+  danger: "#ff7b72",
   ansi: [
     "#0b0e14",
     ANSI_GITHUB_EQUIV.red,
@@ -104,13 +119,18 @@ export function themeToXterm(theme: VerdantTheme): ITheme {
 export function applyThemeCss(theme: VerdantTheme): void {
   const root = document.documentElement;
   const vars: Record<string, string> = {
+    "--v-canvas": theme.canvas,
     "--v-bg": theme.background,
     "--v-surface": theme.surface,
+    "--v-surface-raised": theme.surfaceRaised,
     "--v-border": theme.border,
+    "--v-ring": theme.ring,
     "--v-fg": theme.foreground,
     "--v-fg-dim": theme.foregroundDim,
     "--v-accent": theme.accent,
     "--v-selection": theme.selectionBackground,
+    "--v-scrim": theme.scrim,
+    "--v-danger": theme.danger,
   };
   for (const [name, value] of Object.entries(vars)) {
     root.style.setProperty(name, value);

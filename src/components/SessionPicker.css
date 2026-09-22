@@ -1,37 +1,50 @@
-/* --- Overlay de sesiones --- */
+/* --- Overlay de sesiones (paleta de comandos) --- */
 
 .session-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
+  background: var(--v-scrim);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 200;
+  animation: fade-in 130ms var(--v-ease-out);
 }
 
-.session-picker {
-  width: 90vw;
-  max-width: 780px;
-  max-height: 70vh;
-  background: var(--v-surface);
-  border: 1px solid var(--v-border);
-  border-radius: 12px;
-  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  animation: session-pop 120ms ease-out;
-}
-
-@keyframes session-pop {
+@keyframes fade-in {
   from {
     opacity: 0;
-    transform: scale(0.97);
   }
   to {
     opacity: 1;
-    transform: scale(1);
+  }
+}
+
+.session-picker {
+  width: min(92vw, 860px);
+  max-height: 74vh;
+  background: var(--v-surface-raised);
+  border: 1px solid var(--v-border);
+  border-radius: 14px;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.4),
+    0 28px 72px -16px rgba(0, 0, 0, 0.85);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: overlay-pop 170ms var(--v-ease-pop);
+}
+
+@keyframes overlay-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.965) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
   }
 }
 
@@ -39,11 +52,12 @@
   width: 100%;
   border: none;
   border-bottom: 1px solid var(--v-border);
-  background: var(--v-bg);
+  background: transparent;
   color: var(--v-fg);
   font: inherit;
-  font-size: 14px;
-  padding: 12px 16px;
+  font-size: 15px;
+  letter-spacing: 0.01em;
+  padding: 16px 18px;
   outline: none;
 }
 
@@ -51,38 +65,53 @@
   color: var(--v-fg-dim);
 }
 
+.session-search:focus {
+  box-shadow: inset 0 -2px 0 -1px var(--v-ring);
+}
+
 .session-body {
   display: flex;
   min-height: 300px;
-  max-height: 55vh;
+  max-height: 58vh;
 }
 
 .session-list {
   list-style: none;
   margin: 0;
-  padding: 4px 0;
+  padding: 8px;
   overflow-y: auto;
-  width: 46%;
+  width: 42%;
   border-right: 1px solid var(--v-border);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .session-item {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 8px 14px;
+  gap: 3px;
+  padding: 9px 12px;
+  border-radius: 9px;
   cursor: pointer;
-  transition: background 80ms ease;
+  position: relative;
+  transition:
+    background 90ms var(--v-ease-out),
+    box-shadow 90ms var(--v-ease-out);
 }
 
-.session-item:hover,
+.session-item:hover {
+  background: color-mix(in srgb, white 6%, transparent);
+}
+
 .session-item.selected {
-  background: color-mix(in srgb, var(--v-accent) 12%, transparent);
+  background: color-mix(in srgb, var(--v-accent) 11%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--v-accent) 32%, transparent);
 }
 
 .session-item-label {
-  font-family: var(--v-font-mono, "JetBrains Mono", monospace);
-  font-size: 13px;
+  font-family: var(--v-font-mono);
+  font-size: 12.5px;
   color: var(--v-fg);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -92,51 +121,70 @@
 .session-item-meta {
   font-size: 11px;
   color: var(--v-fg-dim);
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.session-item-meta span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .session-empty {
-  padding: 16px;
+  padding: 24px 16px;
   text-align: center;
   color: var(--v-fg-dim);
+  font-size: 13px;
 }
 
 /* --- Preview lateral --- */
 
 .session-preview {
   flex: 1;
-  padding: 14px 16px;
+  padding: 16px 18px;
   overflow-y: auto;
   font-size: 13px;
+  background:
+    radial-gradient(120% 100% at 100% 0%, color-mix(in srgb, var(--v-accent) 5%, transparent), transparent 60%);
 }
 
 .session-preview-head {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .session-preview-title {
   font-weight: 600;
   color: var(--v-accent);
+  font-size: 12.5px;
+  letter-spacing: 0.02em;
 }
 
 .session-preview-cwd {
   color: var(--v-fg-dim);
+  font-family: var(--v-font-mono);
+  font-size: 11.5px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .session-preview-snippet {
-  margin: 0 0 10px;
+  margin: 0 0 12px;
   color: var(--v-fg-dim);
   font-size: 12px;
-  background: var(--v-bg);
-  border-radius: 6px;
-  padding: 8px 10px;
-  max-height: 60px;
+  background: color-mix(in srgb, white 4%, transparent);
+  border: 1px solid var(--v-border);
+  border-radius: 9px;
+  padding: 9px 11px;
+  max-height: 68px;
   overflow: hidden;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .session-preview-blocks {
@@ -145,26 +193,36 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
 }
 
 .session-preview-blocks li {
   display: flex;
   gap: 10px;
   align-items: baseline;
+  padding: 6px 9px;
+  border-radius: 8px;
+  transition: background 80ms var(--v-ease-out);
+}
+
+.session-preview-blocks li:hover {
+  background: color-mix(in srgb, white 4%, transparent);
 }
 
 .preview-seq {
   color: var(--v-fg-dim);
-  font-size: 11px;
-  min-width: 18px;
+  font-size: 10.5px;
+  min-width: 20px;
   text-align: right;
-  font-family: var(--v-font-mono, "JetBrains Mono", monospace);
+  font-family: var(--v-font-mono);
+  background: color-mix(in srgb, white 7%, transparent);
+  border-radius: 5px;
+  padding: 1px 5px;
 }
 
 .preview-cmd {
   color: var(--v-fg);
-  font-family: var(--v-font-mono, "JetBrains Mono", monospace);
+  font-family: var(--v-font-mono);
   font-size: 12px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -174,12 +232,15 @@
 .preview-empty,
 .session-preview-empty {
   color: var(--v-fg-dim);
+  font-size: 12.5px;
+  padding: 12px 0;
 }
 
 .session-hint {
-  padding: 8px 16px;
-  font-size: 11px;
+  padding: 10px 16px;
+  font-size: 11.5px;
   color: var(--v-fg-dim);
   border-top: 1px solid var(--v-border);
   text-align: center;
+  letter-spacing: 0.02em;
 }
