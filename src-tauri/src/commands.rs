@@ -63,6 +63,12 @@ pub fn get_config(state: State<AppState>) -> Config {
     (*state.config).clone()
 }
 
+/// Persiste el modo de tema elegido ("ryoku" | "base") en verdant.jsonc.
+#[tauri::command]
+pub fn set_theme_mode(mode: String) -> Result<(), String> {
+    crate::config::set_theme_mode(&mode)
+}
+
 /// Log de depuración del frontend (solo diagnóstico; se elimina en su momento).
 #[tauri::command]
 pub fn debug_log(msg: String) -> Result<(), String> {

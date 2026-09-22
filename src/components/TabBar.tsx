@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { ThemeMode } from "../lib/theme";
 
 export interface Tab {
   id: number;
@@ -15,6 +16,9 @@ interface TabBarProps {
   /** Panel lateral de sesiones (toggle desde el icono). */
   sidebarOpen: boolean;
   onToggleSidebar: () => void;
+  /** Modo de tema actual (ryoku auto sigue al wallpaper; base es fijo). */
+  themeMode: ThemeMode;
+  onToggleTheme: () => void;
 }
 
 const NEW_TAB_LABEL = "+";
@@ -28,6 +32,8 @@ export function TabBar({
   onRename,
   sidebarOpen,
   onToggleSidebar,
+  themeMode,
+  onToggleTheme,
 }: TabBarProps) {
   return (
     <nav className="tab-bar" role="tablist" aria-label="Tabs de verdant">
@@ -71,6 +77,32 @@ export function TabBar({
           >
             <rect x="1.5" y="2.5" width="13" height="11" rx="2.2" />
             <line x1="6" y1="2.5" x2="6" y2="13.5" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          className={`tab-action-btn${themeMode === "ryoku" ? " active" : ""}`}
+          onClick={onToggleTheme}
+          aria-label="Alternar tema: ryoku (auto) o base"
+          aria-pressed={themeMode === "ryoku"}
+          title={
+            themeMode === "ryoku"
+              ? "Tema ryoku: sigue al wallpaper · Ctrl+Shift+M"
+              : "Tema base: fijo · Ctrl+Shift+M"
+          }
+        >
+          <svg
+            width="15"
+            height="15"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+            aria-hidden="true"
+          >
+            <circle cx="8" cy="8" r="5.8" />
+            <circle cx="11.2" cy="4.8" r="1.9" fill="currentColor" stroke="none" />
           </svg>
         </button>
       </div>

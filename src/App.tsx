@@ -4,6 +4,7 @@ import { SplitView } from "./components/SplitView";
 import { SessionPicker } from "./components/SessionPicker";
 import { SessionSidebar } from "./components/SessionSidebar";
 import { TabBar, type Tab } from "./components/TabBar";
+import { initThemeMode, toggleThemeMode, type ThemeMode } from "./lib/theme";
 import type { VerdantConfig } from "./components/TerminalPane";
 import { dispatchAction } from "./lib/actions";
 import { comboMatches, parseCombo, type KeyCombo } from "./lib/keybinds";
@@ -37,18 +38,30 @@ function App() {
   const [config, setConfig] = useState<VerdantConfig | null>(null);
   const [showSessions, setShowSessions] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  /** Modo de tema ("ryoku" auto / "base" fijo), espejo del persistido. */
+  const [themeMode, setThemeMode] = useState<ThemeMode>("base");
   /** Pane id (layout) → id de sesión DB (para restore/attach). */
   const paneSessionsRef = useRef(new Map<PaneRef, number>());
 
   useEffect(() => {
     let cancelled = false;
     void invoke<VerdantConfig>("get_config").then((loaded) => {
-      if (!cancelled) setConfig(loaded);
+      if (cancelled) return;
+      setConfig(loaded);
+      const mode: ThemeMode = loaded.theme === "ryoku" ? "ryoku" : "base";
+      setThemeMode(mode);
+      // Live-reload del tema ryoku (wallpaper → paleta matugen → verdant).
+      initThemeMode(mode);
     });
     return () => {
       cancelled = true;
     };
   }, []);
+
+  const toggleTheme = () => {
+    const next = toggleThemeMode();
+    setThemeMode(next);
+  };
 
   const createTab = (sessionId?: number) => {
     // Los callbacks de eventos (keybind, click en "+") pueden pasar el evento
@@ -190,6 +203,7 @@ function App() {
       invalidateSessionsCache();
       setShowSessions(true);
     });
+    bind("theme-toggle", toggleTheme);
     bind("split-v", () => splitActivePane("v"));
     bind("split-h", () => splitActivePane("h"));
     bind("pane-close", closeActivePane);
@@ -243,6 +257,8 @@ function App() {
         onRename={renameTab}
         sidebarOpen={sidebarOpen}
         onToggleSidebar={() => setSidebarOpen((open) => !open)}
+        themeMode={themeMode}
+        onToggleTheme={toggleTheme}
       />
       <div className="app-main">
         {sidebarOpen && (

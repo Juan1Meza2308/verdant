@@ -15,6 +15,7 @@ pub const DEFAULT_TERM: &str = "xterm-256color";
 pub const DEFAULT_FONT: &str = "JetBrains Mono";
 pub const DEFAULT_FONT_SIZE: u16 = 14;
 pub const DEFAULT_SCROLLBACK: u32 = 5000;
+pub const DEFAULT_THEME: &str = "ryoku";
 
 /// Atajos por defecto: action -> combinación (formato `Ctrl+Shift+T`).
 pub const DEFAULT_KEYBINDS: &[(&str, &str)] = &[
@@ -36,6 +37,7 @@ pub const DEFAULT_KEYBINDS: &[(&str, &str)] = &[
     ("block-copy", "Ctrl+Shift+Y"),
     ("snippets", "Ctrl+Shift+S"),
     ("sessions", "Ctrl+Shift+P"),
+    ("theme-toggle", "Ctrl+Shift+M"),
 ];
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -48,6 +50,8 @@ pub struct Config {
     pub font_size: u16,
     pub scrollback: u32,
     pub cursor_blink: bool,
+    /// Tema: "ryoku" (auto, sigue al wallpaper del escritorio) o "base".
+    pub theme: String,
     /// Mapa action -> combinación de teclas.
     pub keybinds: HashMap<String, String>,
 }
@@ -62,6 +66,7 @@ impl Default for Config {
             font_size: DEFAULT_FONT_SIZE,
             scrollback: DEFAULT_SCROLLBACK,
             cursor_blink: true,
+            theme: DEFAULT_THEME.to_string(),
             keybinds: DEFAULT_KEYBINDS.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect(),
         }
     }
@@ -123,6 +128,7 @@ fn merge_with_defaults(parsed: Config) -> Config {
         font_size: if parsed.font_size == 0 { defaults.font_size } else { parsed.font_size },
         scrollback: if parsed.scrollback == 0 { defaults.scrollback } else { parsed.scrollback },
         cursor_blink: parsed.cursor_blink,
+        theme: if parsed.theme.trim().is_empty() { defaults.theme } else { parsed.theme },
         keybinds,
     }
 }
@@ -143,6 +149,9 @@ fn write_default(path: &PathBuf) {
 
   "cursorBlink": true,
 
+  // Tema: "ryoku" sigue en vivo al wallpaper del escritorio; "base" usa el tema fijo
+  "theme": "ryoku",
+
   // Atajos de teclado: action = combinación
   "keybinds": {
     "tab-new": "Ctrl+Shift+T",
@@ -156,7 +165,8 @@ fn write_default(path: &PathBuf) {
     "split-h": "Ctrl+Shift+O",
     "pane-close": "Ctrl+Shift+Q",
     "pane-next": "Ctrl+Shift+J",
-    "pane-prev": "Ctrl+Shift+K"
+    "pane-prev": "Ctrl+Shift+K",
+    "theme-toggle": "Ctrl+Shift+M"
   }
 }
 "#;
@@ -164,6 +174,43 @@ fn write_default(path: &PathBuf) {
         let _ = std::fs::create_dir_all(parent);
     }
     let _ = std::fs::write(path, template);
+}
+
+/// Persiste el modo de tema en verdant.jsonc, preservando los comentarios
+/// del usuario (edición quirúrgica de la línea `theme`).
+pub fn set_theme_mode(mode: &str) -> Result<(), String> {
+    let path = config_path();
+    let content =
+        std::fs::read_to_string(&path).map_err(|e| format!("theme: no se pudo leer {}: {e}", path.display()))?;
+    set_theme_mode_in_file(&path, &content, mode)
+}
+
+/// Reescribe la línea `theme` (formato jsonc: `"theme": "x"` o `theme: 'x'`).
+/// Si no existe, la inserta tras la primera llave. No toca el resto del archivo.
+fn set_theme_mode_in_file(path: &std::path::Path, content: &str, mode: &str) -> Result<(), String> {
+    let mut lines: Vec<String> = content.lines().map(String::from).collect();
+    let mut replaced = false;
+    for line in lines.iter_mut() {
+        let trimmed = line.trim_start();
+        // Acepta `"theme": ...` y `theme: ...` (jsonc con/sin comillas).
+        let without_quote = trimmed.strip_prefix('"').unwrap_or(trimmed);
+        if let Some(rest) = without_quote.strip_prefix("theme") {
+            if rest.trim_start_matches('"').trim_start().starts_with(':') {
+                *line = format!("  \"theme\": \"{mode}\",");
+                replaced = true;
+                break;
+            }
+        }
+    }
+    if !replaced {
+        if let Some(index) = lines.iter().position(|line| line.contains('{')) {
+            lines.insert(index + 1, format!("  \"theme\": \"{mode}\","));
+        } else {
+            return Err("theme: el archivo no tiene objeto raíz".to_string());
+        }
+    }
+    std::fs::write(path, lines.join("\n"))
+        .map_err(|e| format!("theme: error al escribir {}: {e}", path.display()))
 }
 
 #[cfg(test)]
@@ -177,6 +224,7 @@ mod tests {
         assert_eq!(config.font_size, 14);
         assert_eq!(config.scrollback, 5000);
         assert!(config.cursor_blink);
+        assert_eq!(config.theme, "ryoku");
         assert_eq!(config.keybinds.get("tab-new").map(String::as_str), Some("Ctrl+Shift+T"));
     }
 
@@ -232,5 +280,57 @@ mod tests {
         assert_eq!(config.keybinds.get("tab-new").map(String::as_str), Some("Ctrl+Shift+T"));
         // Los no tocados siguen en defaults
         assert_eq!(config.keybinds.get("search").map(String::as_str), Some("Ctrl+Shift+F"));
+    }
+
+    #[test]
+    fn set_theme_mode_reescribe_y_preserva_comentarios() {
+        let dir = std::env::temp_dir().join(format!("verdant-config-reescribe-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("crear temp");
+        let path = dir.join("verdant.jsonc");
+        let raw = "// comentario del usuario\n{\n  \"shell\": \"fish\",\n  \"theme\": \"base\",\n  \"fontSize\": 16,\n}\n";
+        std::fs::write(&path, raw).expect("escribir");
+        let content = std::fs::read_to_string(&path).expect("leer");
+
+        set_theme_mode_in_file(&path, &content, "ryoku").expect("set");
+
+        let out = std::fs::read_to_string(&path).expect("releer");
+        assert!(out.contains("\"theme\": \"ryoku\""));
+        assert!(out.contains("// comentario del usuario"));
+        assert!(out.contains("\"shell\": \"fish\""));
+        assert!(!out.contains("\"theme\": \"base\""));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn set_theme_mode_acepta_formato_jsonc_sin_comillas() {
+        let dir = std::env::temp_dir().join(format!("verdant-config-jsonc-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("crear temp");
+        let path = dir.join("verdant.jsonc");
+        let raw = "{ theme: 'base', shell: 'fish' }\n";
+        std::fs::write(&path, raw).expect("escribir");
+        let content = std::fs::read_to_string(&path).expect("leer");
+
+        set_theme_mode_in_file(&path, &content, "ryoku").expect("set");
+
+        let out = std::fs::read_to_string(&path).expect("releer");
+        assert!(out.contains("\"theme\": \"ryoku\""));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn set_theme_mode_inserta_si_no_existe_la_clave() {
+        let dir = std::env::temp_dir().join(format!("verdant-config-inserta-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("crear temp");
+        let path = dir.join("verdant.jsonc");
+        let raw = "{\n  \"shell\": \"fish\",\n}\n";
+        std::fs::write(&path, raw).expect("escribir");
+        let content = std::fs::read_to_string(&path).expect("leer");
+
+        set_theme_mode_in_file(&path, &content, "ryoku").expect("set");
+
+        let out = std::fs::read_to_string(&path).expect("releer");
+        assert!(out.contains("\"theme\": \"ryoku\""));
+        assert!(out.contains("\"shell\": \"fish\""));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

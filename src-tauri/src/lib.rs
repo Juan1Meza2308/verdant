@@ -4,6 +4,7 @@ mod db;
 mod pty;
 mod sessions;
 mod snippets;
+mod theme;
 
 use commands::AppState;
 use db::create_pool;
@@ -23,6 +24,11 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
+        .setup(|app| {
+            // Live-reload del tema ryoku: vigila colors.json (paleta de matugen).
+            theme::spawn_watcher(app.handle().clone());
+            Ok(())
+        })
         .manage(AppState {
             manager: Mutex::new(pty::SessionManager::new()),
             config: app_config,
@@ -34,7 +40,9 @@ pub fn run() {
             commands::resize_terminal,
             commands::close_terminal,
             commands::get_config,
+            commands::set_theme_mode,
             commands::debug_log,
+            theme::get_ryoku_theme,
             snippets::get_snippets,
             snippets::get_cwd,
             sessions::create_session,

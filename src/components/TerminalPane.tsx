@@ -7,7 +7,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { listen } from "@tauri-apps/api/event";
 import { onAction } from "../lib/actions";
-import { getTheme, subscribeTheme, themeToXterm } from "../lib/theme";
+import { getTheme, subscribeTheme, themeToXterm, type ThemeMode } from "../lib/theme";
 import { SnippetOverlay } from "./SnippetOverlay";
 import "./SnippetOverlay.css";
 import {
@@ -70,6 +70,8 @@ export interface VerdantConfig {
   fontSize: number;
   scrollback: number;
   cursorBlink: boolean;
+  /** "ryoku" (auto, sigue al wallpaper) | "base" (tema fijo). */
+  theme: ThemeMode;
   keybinds: Record<string, string>;
 }
 
@@ -305,7 +307,6 @@ export function TerminalPane({
         if (disposed) return;
         const row = absCursorRow();
         if (marker === "A") {
-          dismissHomeRef.current();
           const wasOpen = blocks.current !== null && blocks.current.endRow === null;
           blocks.onMarker(marker, row, payload);
           const opened = blocks.current;
@@ -335,6 +336,9 @@ export function TerminalPane({
           blocks.onMarker(marker, row, payload);
           const current = blocks.current;
           if (marker === "C" && current) {
+            // Primer comando ejecutado: la home ya no tiene sentido (el usuario
+            // está escribiendo en el shell). Se descarta de forma permanente.
+            dismissHomeRef.current();
             overlay.updateBlock(current);
             // Fase 3: completar command + end_row del bloque abierto.
             const dbId = sessionDbIdRef.current;
