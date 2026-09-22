@@ -49,14 +49,17 @@ function App() {
   }, []);
 
   const createTab = (sessionId?: number) => {
+    // Los callbacks de eventos (keybind, click en "+") pueden pasar el evento
+    // como argumento: solo aceptamos ids numéricos, nunca objetos.
+    const restoreId = typeof sessionId === "number" ? sessionId : undefined;
     const id = nextIdRef.current;
     nextIdRef.current += 1;
     const paneId = nextPaneIdRef.current;
     nextPaneIdRef.current += 1;
-    if (sessionId !== undefined) paneSessionsRef.current.set(paneId, sessionId);
+    if (restoreId !== undefined) paneSessionsRef.current.set(paneId, restoreId);
     setTabs((prev) => [
       ...prev,
-      { id, title: sessionId ? `Sesión ${sessionId}` : `Terminal ${id}`, layout: newLeaf(paneId), activePane: paneId },
+      { id, title: restoreId !== undefined ? `Sesión ${restoreId}` : `Terminal ${id}`, layout: newLeaf(paneId), activePane: paneId },
     ]);
     setActiveTab(id);
   };
@@ -169,7 +172,7 @@ function App() {
       const combo = parseCombo(spec);
       if (combo) bindings.push({ actionName, combo, action });
     };
-    bind("tab-new", createTab);
+    bind("tab-new", () => createTab());
     bind("tab-close", () => closeTab(activeTab));
     bind("tab-next", () => cycleTab(1));
     bind("tab-prev", () => cycleTab(-1));
