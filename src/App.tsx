@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { SplitView } from "./components/SplitView";
+import { SessionPicker } from "./components/SessionPicker";
 import { TabBar, type Tab } from "./components/TabBar";
 import type { VerdantConfig } from "./components/TerminalPane";
 import { dispatchAction } from "./lib/actions";
 import { comboMatches, parseCombo, type KeyCombo } from "./lib/keybinds";
+import { invalidateSessionsCache } from "./lib/sessions";
 import {
   closeLeaf,
   collectPaneIds,
@@ -32,6 +34,9 @@ function App() {
   ]);
   const [activeTab, setActiveTab] = useState(1);
   const [config, setConfig] = useState<VerdantConfig | null>(null);
+  const [showSessions, setShowSessions] = useState(false);
+  /** Pane id (layout) → id de sesión DB (para restore/attach). */
+  const paneSessionsRef = useRef(new Map<PaneRef, number>());
 
   useEffect(() => {
     let cancelled = false;
@@ -43,16 +48,23 @@ function App() {
     };
   }, []);
 
-  const createTab = () => {
+  const createTab = (sessionId?: number) => {
     const id = nextIdRef.current;
     nextIdRef.current += 1;
     const paneId = nextPaneIdRef.current;
     nextPaneIdRef.current += 1;
+    if (sessionId !== undefined) paneSessionsRef.current.set(paneId, sessionId);
     setTabs((prev) => [
       ...prev,
-      { id, title: `Terminal ${id}`, layout: newLeaf(paneId), activePane: paneId },
+      { id, title: sessionId ? `Sesión ${sessionId}` : `Terminal ${id}`, layout: newLeaf(paneId), activePane: paneId },
     ]);
     setActiveTab(id);
+  };
+
+  /** Restaura una sesión persistida en una tab nueva. */
+  const attachSession = (sessionId: number) => {
+    createTab(sessionId);
+    setShowSessions(false);
   };
 
   const closeTab = (id: number) => {
@@ -169,6 +181,10 @@ function App() {
     bind("block-rerun", () => dispatchAction("block-rerun"));
     bind("block-copy", () => dispatchAction("block-copy"));
     bind("snippets", () => dispatchAction("snippets"));
+    bind("sessions", () => {
+      invalidateSessionsCache();
+      setShowSessions(true);
+    });
     bind("split-v", () => splitActivePane("v"));
     bind("split-h", () => splitActivePane("h"));
     bind("pane-close", closeActivePane);
@@ -232,10 +248,14 @@ function App() {
               tabActive={tab.id === activeTab}
               activePane={tab.activePane}
               onFocusPane={(paneId) => focusPane(tab.id, paneId)}
+              getSessionId={(paneId) => paneSessionsRef.current.get(paneId)}
             />
           </div>
         ))}
       </div>
+      {showSessions && (
+        <SessionPicker onAttach={attachSession} onClose={() => setShowSessions(false)} />
+      )}
     </main>
   );
 }

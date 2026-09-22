@@ -62,7 +62,14 @@ function base64ToBytes(b64: string): Uint8Array {
   return bytes;
 }
 
-export function TerminalPane({ active = true }: { active?: boolean }) {
+export function TerminalPane({
+  active = true,
+  sessionId,
+}: {
+  active?: boolean;
+  /** Si se pasa, este pane restaura una sesión persistida (no crea sesión DB). */
+  sessionId?: number;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
@@ -84,9 +91,10 @@ export function TerminalPane({ active = true }: { active?: boolean }) {
     if (!container) return;
 
     const disposers: Array<() => void> = [];
-    let sessionId: number | null = null;
+    let ptyId: number | null = null;
     let disposed = false;
     let term: Terminal | null = null;
+    const restoreSession = sessionId;
 
     const start = async () => {
       const config: VerdantConfig = await invoke("get_config");
@@ -136,18 +144,24 @@ export function TerminalPane({ active = true }: { active?: boolean }) {
         void invoke("close_terminal", { id });
         return;
       }
-      sessionId = id;
+      ptyId = id;
 
-      // Crear sesión persistente en DB (Fase 3)
-      const cwd = await invoke<string>("get_cwd").catch(() => "~");
-      const sessionDbId = await invoke<number>("create_session", {
-        cols: terminal.cols,
-        rows: terminal.rows,
-        cwd,
-        shell: config.shell,
-      });
-      sessionDbIdRef.current = sessionDbId;
-      blockSeqRef.current = 0;
+      if (restoreSession !== undefined) {
+        // Modo restore: reanuda una sesión persistida (no crea sesión DB nueva).
+        sessionDbIdRef.current = restoreSession;
+        blockSeqRef.current = 0; // Fase 6: se recalcula con los bloques restaurados.
+      } else {
+        // Crear sesión persistente en DB (Fase 3)
+        const cwd = await invoke<string>("get_cwd").catch(() => "~");
+        const sessionDbId = await invoke<number>("create_session", {
+          cols: terminal.cols,
+          rows: terminal.rows,
+          cwd,
+          shell: config.shell,
+        });
+        sessionDbIdRef.current = sessionDbId;
+        blockSeqRef.current = 0;
+      }
 
       const blocks = new BlocksState();
       blocksRef.current = blocks;
@@ -371,8 +385,8 @@ export function TerminalPane({ active = true }: { active?: boolean }) {
         clearTimeout(outputFlushTimerRef.current);
         outputFlushTimerRef.current = null;
       }
-      if (sessionId !== null) {
-        void invoke("close_terminal", { id: sessionId });
+      if (ptyId !== null) {
+        void invoke("close_terminal", { id: ptyId });
       }
       overlayRef.current?.dispose();
       overlayRef.current = null;

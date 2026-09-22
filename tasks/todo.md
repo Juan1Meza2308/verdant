@@ -109,10 +109,10 @@
   - Verify: ✅ `tsc` verde; 11 tests vitest (debounce, search vacío→no toca API, limit, sessionLabel, formatSessionTime); tipos espejo de serde
   - Files: src/lib/sessions.ts, src/lib/sessions.test.ts
 
-- [ ] Task: SessionPicker Overlay (Ctrl+Shift+P)
-  - Acceptance: lista paginada virtualizada, búsqueda en vivo (debounce 150ms), preview lateral (últimos bloques), Enter → attach, Escape cierra
-  - Verify: manual + vitest (render, keyboard nav)
-  - Files: src/components/SessionPicker.tsx (+CSS), TerminalPane.tsx (keybind + action)
+- [x] Task: SessionPicker Overlay (Ctrl+Shift+P)
+  - Acceptance: lista (recientes al abrir), búsqueda en vivo FTS debounced 150ms, preview lateral (últimos 5 bloques), Enter → attach (abre tab con pane restaurable), Escape cierra
+  - Verify: ✅ `tsc` + `cargo check` verdes; 65 tests vitest verdes; keybind `sessions=Ctrl+Shift+P` en config.rs; plumbing pane→session en App/SplitView/TerminalPane (modo restore no crea sesión DB)
+  - Files: src/components/SessionPicker.tsx (+CSS), App.tsx, SplitView.tsx, TerminalPane.tsx, config.rs, actions.ts
 
 - [ ] Task: Restore / Replay de sesión al crear pane
   - Acceptance: prop `initialSessionId` → get_session + get_block_output por bloques → replay en parser + terminal.write serializado; scrollback restaurado

@@ -9,9 +9,17 @@ interface SplitViewProps {
   activePane: PaneRef;
   /** Click en una hoja -> enfocar ese pane. */
   onFocusPane: (paneId: PaneRef) => void;
+  /** Pane id → id de sesión DB persistida (si este pane restaura una). */
+  getSessionId?: (paneId: PaneRef) => number | undefined;
 }
 
-export function SplitView({ layout, tabActive, activePane, onFocusPane }: SplitViewProps) {
+export function SplitView({
+  layout,
+  tabActive,
+  activePane,
+  onFocusPane,
+  getSessionId,
+}: SplitViewProps) {
   if (layout.type === "leaf") {
     const focused = tabActive && layout.paneId === activePane;
     return (
@@ -19,7 +27,7 @@ export function SplitView({ layout, tabActive, activePane, onFocusPane }: SplitV
         className={`split-leaf${focused ? " pane-focused" : ""}`}
         onMouseDownCapture={() => onFocusPane(layout.paneId)}
       >
-        <TerminalPane active={focused} />
+        <TerminalPane active={focused} sessionId={getSessionId?.(layout.paneId)} />
       </div>
     );
   }
@@ -28,10 +36,10 @@ export function SplitView({ layout, tabActive, activePane, onFocusPane }: SplitV
   return (
     <div className={`split-${direction}`}>
       <div className="split-slot" style={{ flexGrow: layout.ratio, flexBasis: "0%" }}>
-        <SplitView layout={layout.first} tabActive={tabActive} activePane={activePane} onFocusPane={onFocusPane} />
+        <SplitView layout={layout.first} tabActive={tabActive} activePane={activePane} onFocusPane={onFocusPane} getSessionId={getSessionId} />
       </div>
       <div className="split-slot" style={{ flexGrow: 1 - layout.ratio, flexBasis: "0%" }}>
-        <SplitView layout={layout.second} tabActive={tabActive} activePane={activePane} onFocusPane={onFocusPane} />
+        <SplitView layout={layout.second} tabActive={tabActive} activePane={activePane} onFocusPane={onFocusPane} getSessionId={getSessionId} />
       </div>
     </div>
   );

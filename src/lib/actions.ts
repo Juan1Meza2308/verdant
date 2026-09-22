@@ -9,7 +9,8 @@ export type ActionName =
   | "block-next"
   | "block-rerun"
   | "block-copy"
-  | "snippets";
+  | "snippets"
+  | "sessions";
 
 const listeners = new Map<ActionName, Set<() => void>>();
 

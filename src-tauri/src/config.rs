@@ -35,6 +35,7 @@ pub const DEFAULT_KEYBINDS: &[(&str, &str)] = &[
     ("block-rerun", "Ctrl+Shift+R"),
     ("block-copy", "Ctrl+Shift+Y"),
     ("snippets", "Ctrl+Shift+S"),
+    ("sessions", "Ctrl+Shift+P"),
 ];
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
