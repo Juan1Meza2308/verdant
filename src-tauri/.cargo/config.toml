@@ -1,0 +1,4 @@
+# verdant (src-tauri): builds sin DATABASE_URL usando la caché offline de sqlx.
+# Si un query!() cambia, regenerar con: cargo sqlx prepare -- --lib
+[env]
+SQLX_OFFLINE = "true"

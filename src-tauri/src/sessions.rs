@@ -635,3 +635,50 @@ pub async fn delete_session(
         .map_err(|e| format!("delete_session: {e}"))?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn command_hash_es_determinista() {
+        assert_eq!(command_hash("ls -la"), command_hash("ls -la"));
+        assert_ne!(command_hash("ls"), command_hash("ls -la"));
+    }
+
+    #[test]
+    fn strip_ansi_quita_csi_y_osc() {
+        // CSI (colores/movimiento) y OSC (títulos, osc133) se descartan.
+        let input = b"hola \x1b[31mrojo\x1b[0m y \x1b]0;title\x07fin";
+        assert_eq!(strip_ansi_for_fts(input), "hola rojo y fin");
+    }
+
+    #[test]
+    fn strip_ansi_quita_osc_con_terminador_st() {
+        // OSC terminado con ST (ESC \), usado por fish para osc133.
+        let input = b"a\x1b]133;A\x1b\\b";
+        assert_eq!(strip_ansi_for_fts(input), "ab");
+    }
+
+    #[test]
+    fn strip_ansi_descarta_bell() {
+        assert_eq!(strip_ansi_for_fts(b"x\x07y"), "xy");
+    }
+
+    #[test]
+    fn strip_ansi_no_decodifica_utf8_invalido() {
+        // Bytes no-UTF8 se convierten con pérdida, nunca panican.
+        let input = [0x66, 0xFF, 0xFE, 0x67]; // f <invalido> g
+        let out = strip_ansi_for_fts(&input);
+        assert!(out.starts_with('f'));
+        assert!(out.ends_with('g'));
+    }
+
+    #[test]
+    fn strip_ansi_trunca_a_2048_caracteres() {
+        let input = vec![b'a'; 4000];
+        let out = strip_ansi_for_fts(&input);
+        assert!(out.chars().count() <= 2049); // 2048 + '…'
+        assert!(out.ends_with('…'));
+    }
+}

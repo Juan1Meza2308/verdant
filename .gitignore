@@ -22,3 +22,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# sqlx: la caché de queries preparadas (.json) se commitea para builds
+# offline sin DATABASE_URL; las DBs de preparación locales no.
+.sqlx/*
+!.sqlx/*.json
+src-tauri/.sqlx/*
+!src-tauri/.sqlx/*.json

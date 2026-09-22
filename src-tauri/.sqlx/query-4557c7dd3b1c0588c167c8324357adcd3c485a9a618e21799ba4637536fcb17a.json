@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "\n        SELECT id, created_at, updated_at, cwd, shell, cols, rows, exit_code, title, env_json, scrollback_limit\n        FROM sessions\n        WHERE (? IS NULL OR cwd LIKE '%' || ? || '%')\n          AND (? IS NULL OR updated_at >= ?)\n          AND (? IS NULL OR updated_at <= ?)\n          AND (? = 0 OR exit_code IS NOT NULL)\n        ORDER BY updated_at DESC\n        LIMIT ? OFFSET ?\n        ",
+  "query": "\n        SELECT id, created_at, updated_at, cwd, shell, cols, rows, exit_code, title, env_json, scrollback_limit\n        FROM sessions\n        WHERE (? IS NULL OR cwd LIKE ?)\n          AND (? IS NULL OR updated_at >= ?)\n          AND (? IS NULL OR updated_at <= ?)\n          AND (? = 0 OR exit_code IS NOT NULL)\n        ORDER BY updated_at DESC\n        LIMIT ? OFFSET ?\n        ",
   "describe": {
     "columns": [
       {
@@ -76,5 +76,5 @@
       true
     ]
   },
-  "hash": "e1e6fe2048761efe1852a83fa7ba425aa9053fb1994e9769539b8b4f799c49b1"
+  "hash": "4557c7dd3b1c0588c167c8324357adcd3c485a9a618e21799ba4637536fcb17a"
 }
