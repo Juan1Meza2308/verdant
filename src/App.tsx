@@ -264,6 +264,7 @@ function App() {
                 activePane={tab.activePane}
                 onFocusPane={(paneId) => focusPane(tab.id, paneId)}
                 getSessionId={(paneId) => paneSessionsRef.current.get(paneId)}
+                onAttachSession={attachSession}
               />
             </div>
           ))}

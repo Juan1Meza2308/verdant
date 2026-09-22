@@ -1,0 +1,50 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT s.id, s.cwd, s.title, s.updated_at,\n               (SELECT b2.command FROM blocks b2\n                 WHERE b2.session_id = s.id AND b2.command != ''\n                 ORDER BY b2.seq DESC LIMIT 1) AS last_command,\n               COUNT(b.id) AS block_count\n        FROM sessions s\n        LEFT JOIN blocks b ON b.session_id = s.id\n        GROUP BY s.id\n        ORDER BY s.updated_at DESC\n        LIMIT ?\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "cwd",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "title",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "updated_at",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "last_command",
+        "ordinal": 4,
+        "type_info": "Text"
+      },
+      {
+        "name": "block_count",
+        "ordinal": 5,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "d0f9a0b07c71af103c61e224b978035246cd801324671459d91593974994b563"
+}

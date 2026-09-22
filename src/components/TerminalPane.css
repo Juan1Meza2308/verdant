@@ -124,6 +124,7 @@
   border-radius: 7px;
 }
 
+/* Bloque activo: barra lateral de acento (marca Warp) sobre el fill sutil. */
 .verdant-block-active {
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--v-accent) 45%, transparent);
+  box-shadow: inset 2px 0 0 0 color-mix(in srgb, var(--v-accent) 85%, transparent);
 }

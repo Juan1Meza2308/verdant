@@ -514,6 +514,65 @@ pub async fn list_sessions(
     Ok(sessions)
 }
 
+/// Resumen para la home: última orden + nº de bloques por sesión.
+#[derive(Debug, Clone, Serialize)]
+pub struct RecentSession {
+    pub id: i64,
+    pub cwd: String,
+    pub title: Option<String>,
+    pub updated_at: String,
+    pub last_command: Option<String>,
+    pub block_count: i64,
+}
+
+/// Última orden + nº de bloques por sesión (sin N+1: la última orden sale de
+/// una subconsulta por sesión, ordenada por updated_at DESC).
+async fn fetch_recent_sessions(
+    pool: &sqlx::Pool<sqlx::Sqlite>,
+    limit: i64,
+) -> Result<Vec<RecentSession>, String> {
+    let rows = sqlx::query!(
+        r#"
+        SELECT s.id, s.cwd, s.title, s.updated_at,
+               (SELECT b2.command FROM blocks b2
+                 WHERE b2.session_id = s.id AND b2.command != ''
+                 ORDER BY b2.seq DESC LIMIT 1) AS last_command,
+               COUNT(b.id) AS block_count
+        FROM sessions s
+        LEFT JOIN blocks b ON b.session_id = s.id
+        GROUP BY s.id
+        ORDER BY s.updated_at DESC
+        LIMIT ?
+        "#,
+        limit
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| format!("recent_sessions: {e}"))?;
+
+    let mut recent = Vec::new();
+    for row in rows {
+        recent.push(RecentSession {
+            id: row.id,
+            cwd: row.cwd,
+            title: row.title,
+            updated_at: row.updated_at,
+            last_command: row.last_command,
+            block_count: row.block_count,
+        });
+    }
+    Ok(recent)
+}
+
+/// Lista un resumen de sesiones recientes para la pantalla de inicio.
+#[tauri::command]
+pub async fn recent_sessions(
+    state: State<'_, crate::commands::AppState>,
+    limit: Option<i64>,
+) -> Result<Vec<RecentSession>, String> {
+    fetch_recent_sessions(&state.db, limit.unwrap_or(8)).await
+}
+
 /// Obtiene sesión completa con sus bloques (sin output completo).
 #[tauri::command(rename_all = "snake_case")]
 pub async fn get_session(
@@ -765,5 +824,69 @@ mod tests {
         let out = strip_ansi_for_fts(&input);
         assert!(out.chars().count() <= 2049); // 2048 + '…'
         assert!(out.ends_with('…'));
+    }
+
+    #[tokio::test]
+    async fn recent_sessions_devuelve_ultima_orden_y_conteo() {
+        let pool = crate::db::test_pool().await.expect("pool");
+
+        // Sesión 1: bloque con comando + bloque abierto (command '') →
+        // última orden real "ls -la" y 2 bloques.
+        sqlx::query("INSERT INTO sessions (id, cwd, shell, title) VALUES (1, '/tmp', 'fish', 'prueba')")
+            .execute(&pool)
+            .await
+            .expect("insert session");
+        sqlx::query(
+            "INSERT INTO blocks (id, session_id, seq, start_row, end_row, command, command_hash) \
+             VALUES (1, 1, 1, 0, 2, 'echo hola', 'h1')",
+        )
+        .execute(&pool)
+        .await
+        .expect("insert block");
+        sqlx::query(
+            "INSERT INTO blocks (id, session_id, seq, start_row, end_row, command, command_hash) \
+             VALUES (2, 1, 2, 3, 5, 'ls -la', 'h2')",
+        )
+        .execute(&pool)
+        .await
+        .expect("insert block");
+
+        // Sesión 2: solo bloque abierto (command '') → last_command None.
+        sqlx::query("INSERT INTO sessions (id, cwd, shell) VALUES (2, '/home', 'fish')")
+            .execute(&pool)
+            .await
+            .expect("insert session");
+        sqlx::query(
+            "INSERT INTO blocks (id, session_id, seq, start_row, end_row, command, command_hash) \
+             VALUES (3, 2, 1, 0, NULL, '', 'h3')",
+        )
+        .execute(&pool)
+        .await
+        .expect("insert block");
+
+        let recent = fetch_recent_sessions(&pool, 10).await.expect("fetch");
+
+        assert_eq!(recent.len(), 2);
+        let s1 = recent.iter().find(|r| r.id == 1).expect("sesión 1");
+        assert_eq!(s1.last_command.as_deref(), Some("ls -la"));
+        assert_eq!(s1.block_count, 2);
+        assert_eq!(s1.title.as_deref(), Some("prueba"));
+        let s2 = recent.iter().find(|r| r.id == 2).expect("sesión 2");
+        assert_eq!(s2.last_command, None);
+        assert_eq!(s2.block_count, 1);
+    }
+
+    #[tokio::test]
+    async fn recent_sessions_respeta_limite() {
+        let pool = crate::db::test_pool().await.expect("pool");
+        for id in 1..=4 {
+            sqlx::query("INSERT INTO sessions (id, cwd, shell) VALUES (?, '/tmp', 'fish')")
+                .bind(id)
+                .execute(&pool)
+                .await
+                .expect("insert session");
+        }
+        let recent = fetch_recent_sessions(&pool, 2).await.expect("fetch");
+        assert_eq!(recent.len(), 2);
     }
 }

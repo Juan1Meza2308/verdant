@@ -8,6 +8,7 @@ import { invoke } from "@tauri-apps/api/core";
 import {
   debounce,
   searchSessions,
+  recentSessions,
   sessionLabel,
   formatSessionTime,
   SESSION_DEBOUNCE_MS,
@@ -72,6 +73,33 @@ describe("searchSessions", () => {
       query: "nvim",
       limit: 10,
     });
+  });
+});
+
+describe("recentSessions", () => {
+  it("invoca recent_sessions con el límite por defecto", async () => {
+    invokeMock.mockResolvedValueOnce([]);
+    const list = await recentSessions();
+    expect(list).toEqual([]);
+    expect(invokeMock).toHaveBeenCalledWith("recent_sessions", { limit: 6 });
+  });
+
+  it("propaga el límite pedido y devuelve los campos tal cual", async () => {
+    const rows = [
+      {
+        id: 3,
+        cwd: "/tmp",
+        title: null,
+        updated_at: "2026-09-21T12:00:00Z",
+        last_command: "ls -la",
+        block_count: 4,
+      },
+    ];
+    invokeMock.mockResolvedValueOnce(rows);
+    const list = await recentSessions(2);
+    expect(invokeMock).toHaveBeenCalledWith("recent_sessions", { limit: 2 });
+    expect(list[0].last_command).toBe("ls -la");
+    expect(list[0].block_count).toBe(4);
   });
 });
 

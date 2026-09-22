@@ -43,6 +43,7 @@ pub fn run() {
             sessions::append_output,
             sessions::close_session,
             sessions::list_sessions,
+            sessions::recent_sessions,
             sessions::get_session,
             sessions::get_block_output,
             sessions::search_sessions,

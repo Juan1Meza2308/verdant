@@ -18,6 +18,7 @@ import {
 import { BlocksState, adjacentBlockId } from "../lib/blocks";
 import { BlockOverlay } from "../lib/blockOverlay";
 import { getBlockOutput, getSessionDetail } from "../lib/sessions";
+import { StartScreen } from "./StartScreen";
 import "@xterm/xterm/css/xterm.css";
 import "./TerminalPane.css";
 
@@ -84,10 +85,13 @@ function base64ToBytes(b64: string): Uint8Array {
 export function TerminalPane({
   active = true,
   sessionId,
+  onAttachSession,
 }: {
   active?: boolean;
   /** Si se pasa, este pane restaura una sesión persistida (no crea sesión DB). */
   sessionId?: number;
+  /** Abre una sesión en tab nueva (lo usa la pantalla de inicio). */
+  onAttachSession?: (id: number) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
@@ -108,6 +112,20 @@ export function TerminalPane({
   activeRef.current = active;
   const [searching, setSearching] = useState(false);
   const [showSnippets, setShowSnippets] = useState(false);
+  /** Home (pantalla de inicio) visible: solo panes nuevas sin sesión restaurada. */
+  const [showHome, setShowHome] = useState(false);
+  const showHomeRef = useRef(false);
+  const homeRef = useRef<HTMLDivElement>(null);
+  /** Cierre programático (primer bloque escrito, keydown, click "abrir terminal"). */
+  const dismissHomeRef = useRef<() => void>(() => {});
+
+  const dismissHome = useCallback(() => {
+    if (!showHomeRef.current) return;
+    showHomeRef.current = false;
+    setShowHome(false);
+    termRef.current?.focus();
+  }, []);
+  dismissHomeRef.current = dismissHome;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -287,6 +305,7 @@ export function TerminalPane({
         if (disposed) return;
         const row = absCursorRow();
         if (marker === "A") {
+          dismissHomeRef.current();
           const wasOpen = blocks.current !== null && blocks.current.endRow === null;
           blocks.onMarker(marker, row, payload);
           const opened = blocks.current;
@@ -485,7 +504,15 @@ export function TerminalPane({
       });
       disposers.push(unSessionUpdate);
 
-      terminal.focus();
+      if (restoreSession === undefined) {
+        // Pane nueva: la home se muestra sobre el shell vivo; cualquier tecla
+        // la descarta y devuelve el foco al terminal.
+        showHomeRef.current = true;
+        setShowHome(true);
+        requestAnimationFrame(() => homeRef.current?.focus());
+      } else {
+        terminal.focus();
+      }
     };
 
     void start().catch((error) => {
@@ -528,7 +555,11 @@ export function TerminalPane({
     // (al re-activar una tab que estaba oculta).
     raf = requestAnimationFrame(() => {
       fitRef.current?.fit();
-      termRef.current?.focus();
+      if (showHomeRef.current) {
+        homeRef.current?.focus();
+      } else {
+        termRef.current?.focus();
+      }
     });
     return () => cancelAnimationFrame(raf);
   }, [active]);
@@ -671,6 +702,12 @@ export function TerminalPane({
   return (
     <div className="terminal-pane">
       <div ref={containerRef} className="terminal-host" />
+      {showHome && (
+        <StartScreen
+          onAttach={(id) => onAttachSession?.(id)}
+          onOpenShell={dismissHome}
+        />
+      )}
       {searching && (
         <SearchOverlay
           inputRef={searchInputRef}

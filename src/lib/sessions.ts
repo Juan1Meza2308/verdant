@@ -59,12 +59,23 @@ export interface SessionDetail {
   blocks: Block[];
 }
 
+/** Resumen de sesión para la home (espejo de `sessions::RecentSession`). */
+export interface RecentSession {
+  id: number;
+  cwd: string;
+  title: string | null;
+  updated_at: string;
+  last_command: string | null;
+  block_count: number;
+}
+
 /** Firma de invocation para poder mockear en tests. */
 export interface SessionsApi {
   list_sessions(filter?: SessionFilter | null): Promise<Session[]>;
   search_sessions(query: string, limit?: number | null): Promise<SearchHit[]>;
   get_session(id: number): Promise<SessionDetail | null>;
   get_block_output(session_id: number, block_seq: number): Promise<number[] | null>;
+  recent_sessions(limit?: number | null): Promise<RecentSession[]>;
 }
 
 const api: SessionsApi = {
@@ -73,6 +84,7 @@ const api: SessionsApi = {
   get_session: (id) => invoke("get_session", { session_id: id }),
   get_block_output: (session_id, block_seq) =>
     invoke("get_block_output", { session_id, block_seq }),
+  recent_sessions: (limit) => invoke("recent_sessions", { limit: limit ?? null }),
 };
 
 /** Debounce genérico: devuelve wrapper que pospone `fn` hasta `ms` de silencio. */
@@ -123,6 +135,11 @@ export function searchSessions(query: string, limit = 50): Promise<SearchHit[]> 
 /** Detalle de sesión (metadatos + bloques) para el preview del picker. */
 export function getSessionDetail(id: number): Promise<SessionDetail | null> {
   return api.get_session(id);
+}
+
+/** Resumen de sesiones recientes para la pantalla de inicio (sin caché). */
+export function recentSessions(limit = 6): Promise<RecentSession[]> {
+  return api.recent_sessions(limit);
 }
 
 /** Output crudo de un bloque (para restore/replay y preview). */

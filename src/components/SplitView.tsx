@@ -11,6 +11,8 @@ interface SplitViewProps {
   onFocusPane: (paneId: PaneRef) => void;
   /** Pane id → id de sesión DB persistida (si este pane restaura una). */
   getSessionId?: (paneId: PaneRef) => number | undefined;
+  /** Abre una sesión en tab nueva (pantalla de inicio). */
+  onAttachSession?: (sessionId: number) => void;
 }
 
 export function SplitView({
@@ -19,6 +21,7 @@ export function SplitView({
   activePane,
   onFocusPane,
   getSessionId,
+  onAttachSession,
 }: SplitViewProps) {
   if (layout.type === "leaf") {
     const focused = tabActive && layout.paneId === activePane;
@@ -27,7 +30,11 @@ export function SplitView({
         className={`split-leaf${focused ? " pane-focused" : ""}`}
         onMouseDownCapture={() => onFocusPane(layout.paneId)}
       >
-        <TerminalPane active={focused} sessionId={getSessionId?.(layout.paneId)} />
+        <TerminalPane
+          active={focused}
+          sessionId={getSessionId?.(layout.paneId)}
+          onAttachSession={onAttachSession}
+        />
       </div>
     );
   }
@@ -36,10 +43,10 @@ export function SplitView({
   return (
     <div className={`split-${direction}`}>
       <div className="split-slot" style={{ flexGrow: layout.ratio, flexBasis: "0%" }}>
-        <SplitView layout={layout.first} tabActive={tabActive} activePane={activePane} onFocusPane={onFocusPane} getSessionId={getSessionId} />
+        <SplitView layout={layout.first} tabActive={tabActive} activePane={activePane} onFocusPane={onFocusPane} getSessionId={getSessionId} onAttachSession={onAttachSession} />
       </div>
       <div className="split-slot" style={{ flexGrow: 1 - layout.ratio, flexBasis: "0%" }}>
-        <SplitView layout={layout.second} tabActive={tabActive} activePane={activePane} onFocusPane={onFocusPane} getSessionId={getSessionId} />
+        <SplitView layout={layout.second} tabActive={tabActive} activePane={activePane} onFocusPane={onFocusPane} getSessionId={getSessionId} onAttachSession={onAttachSession} />
       </div>
     </div>
   );
