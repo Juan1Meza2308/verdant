@@ -143,9 +143,14 @@
   - Verify: ✅ tsc limpio + vitest 68 verdes; tokens ampliados (canvas/surface-raised/ring/scrim/danger) en theme.ts; pestañas píldora con marcador de acento; paletas con backdrop blur; sidebar con refresco 4s y apertura en tab nueva; commit b4e67bb
   - Files: src/lib/theme.ts, src/App.css, src/components/TabBar.tsx, src/components/{TerminalPane,SessionPicker,SnippetOverlay,SessionSidebar}.{tsx,css}, public/verdant.svg
 
-- [ ] Task: Generación de tema desde el wallpaper de ryoku (live-reload sin tocar componentes)
-  - Acceptance: paleta derivada de la imagen (dominantes → fondo/acento), CHROMA_* inyectado en `setTheme`; Fase 5 de ryoku
-  - Verify: pendiente
-  - Files: — (pendiente)
+- [x] Task: Arranque limpio + pantalla de inicio estilo Warp (plan diseño S0–S1)
+  - Acceptance: sin banner de sistema dentro de verdant (config.fish respeta VERDANT=1); tab nueva = home con recientes + atajos; cualquier tecla la descarta; tarjeta → adjunta en tab nueva
+  - Verify: ✅ tsc + vitest 70 verdes + cargo 15 verdes; recent_sessions (subconsulta, sin N+1) + StartScreen overlay; descarte en primer keydown/comando ejecutado (marcador C, no A); skeletons sin CLS; commit be482d7
+  - Files: src/lib/sessions.ts (+RecentSession), src/components/StartScreen.{tsx,css}, TerminalPane.tsx (showHome/dismissHome/focus), SplitView/App (onAttachSession), src-tauri/src/sessions.rs (recent_sessions), /home/FelipeDev/.config/fish/config.fish (guard VERDANT, backup .bak-verdant)
+
+- [x] Task: Generación de tema desde el wallpaper de ryoku (live-reload sin tocar componentes)
+  - Acceptance: paleta de matugen (~/.cache/ryoku/colors.json) → tokens verdant (accent=primary, ANSI 16, danger=error); live-reload al repintar wallpaper; contraste AA; fallback base; toggle ryoku/base persistido en verdant.jsonc
+  - Verify: ✅ tsc + vitest 78 verdes + cargo 20 verdes; watcher polling 2s emite ryoku:palette; ensureContrast ≥ 4.5:1; set_theme_mode quirúrgico preservando comentarios; keybind Ctrl+Shift+M + botón en TabBar; commits 1ae385c y 47c85ba
+  - Files: src-tauri/src/theme.rs (nuevo), src/lib/theme.ts (paletteToTheme/initThemeMode/toggle), config.rs (theme + set_theme_mode), commands.rs, lib.rs, App.tsx, TabBar.tsx, src/lib/theme.test.ts
 
 ## Fase 5: ai opencode (pendiente)
