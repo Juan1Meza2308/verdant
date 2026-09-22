@@ -63,6 +63,13 @@ pub struct SearchHit {
     pub rank: f64,
 }
 
+/// Detalle de sesión para restore (session + bloques).
+#[derive(Debug, Clone, Serialize)]
+pub struct SessionDetail {
+    pub session: Session,
+    pub blocks: Vec<Block>,
+}
+
 /// Filtros para listado/búsqueda.
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct SessionFilter {
@@ -90,6 +97,23 @@ fn command_hash(cmd: &str) -> String {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     cmd.hash(&mut hasher);
     format!("{:x}", hasher.finish())
+}
+
+/// Prepara una query para FTS5: cita cada token como frase literal para que
+/// caracteres tipo "-", "+", ":" o "(" no se interpreten como sintaxis.
+fn sanitize_fts_query(query: &str) -> String {
+    query
+        .split_whitespace()
+        .filter_map(|w| {
+            let clean = w.replace('"', "");
+            if clean.is_empty() {
+                None
+            } else {
+                Some(format!("\"{}\"", clean))
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 /// Strip ANSI/OSC para indexar en FTS (reutiliza lógica de db.rs).
@@ -495,7 +519,7 @@ pub async fn list_sessions(
 pub async fn get_session(
     state: State<'_, crate::commands::AppState>,
     session_id: i64,
-) -> Result<Option<(Session, Vec<Block>)>, String> {
+) -> Result<Option<SessionDetail>, String> {
     let pool = &state.db;
 
     let session = sqlx::query!(
@@ -543,7 +567,7 @@ pub async fn get_session(
         created_at: b.created_at,
     }).collect();
 
-    Ok(Some((session, blocks)))
+    Ok(Some(SessionDetail { session, blocks }))
 }
 
 /// Obtiene output completo de un bloque (para restore scrollback).
@@ -584,8 +608,12 @@ pub async fn search_sessions(
     let pool = &state.db;
     let limit = limit.unwrap_or(50);
 
-    // FTS5: query puede tener operadores (+, -, ", *). Sanitizamos comillas.
-    let fts_query = query.replace('"', "");
+    // FTS5: la query puede incluir operadores ("-", "+", ":", "*", etc.).
+    // Se cita cada token como frase literal para evitar errores de sintaxis.
+    let fts_query = sanitize_fts_query(&query);
+    if fts_query.is_empty() {
+        return Ok(Vec::new());
+    }
 
     let rows = sqlx::query(
         r#"
@@ -709,6 +737,17 @@ mod tests {
     fn strip_ansi_colapsa_crlf() {
         // CRLF de salida normal y CR suelto de redibujo → ambos a \n.
         assert_eq!(strip_ansi_for_fts(b"a\r\nb\rc"), "a\nb\nc");
+    }
+
+    #[test]
+    fn sanitize_fts_evita_sintaxis() {
+        // Guiones y símbolos no deben leerse como operadores FTS5.
+        assert_eq!(
+            sanitize_fts_query("test-busqueda 2026"),
+            "\"test-busqueda\" \"2026\""
+        );
+        assert_eq!(sanitize_fts_query("a \"b\" c"), "\"a\" \"b\" \"c\"");
+        assert_eq!(sanitize_fts_query("   "), "");
     }
 
     #[test]

@@ -245,6 +245,10 @@ export function TerminalPane({
             });
             sessionDbIdRef.current = sessionDbId;
             blockSeqRef.current = 0;
+            // Claim de writer: mientras este pane viva, un restore posterior de
+            // la misma sesión será follower (adjunto en vivo), no otro writer.
+            writerSessions.add(sessionDbId);
+            writerClaimRef.current = sessionDbId;
             void invoke("debug_log", { msg: `[session] created id=${sessionDbId}` });
           } catch (error) {
             void invoke("debug_log", { msg: `[session] create FAIL ${String(error)}` });
