@@ -124,10 +124,16 @@
   - Verify: ✅ `tsc` + cargo check verdes; 68 tests vitest verdes; flag `isWriterRef` bloquea todas las escrituras DB del follower; `writerSessions` claim/release en cleanup; backend emite `session_update` en append_block/update_block/append_output/close_session
   - Files: src-tauri/src/sessions.rs (SessionUpdate + emits), src/components/TerminalPane.tsx (follower mode + listener)
 
-- [ ] Task: Criterio de salida Fase 3
+- [ ] Task: Criterio de salida Fase 3 (verificación en uso real)
   - Acceptance: los 6 criterios de SPEC-sessions.md (persistencia, búsqueda global, hybrid attach, rendimiento, TUI, tests)
-  - Verify: uso real por Felipe
-  - Files: —
+  - Verify:
+    1. Persistencia: restaurar sesión del picker → bloques + scrollback + cwd idénticos (uso real)
+    2. Búsqueda global: Ctrl+Shift+P → FTS encuentra comandos/salidas viejas y abre la sesión
+    3. Hybrid attach: restaurar la MISMA sesión en dos panes → escritura en el primero aparece en el segundo (writer/follower)
+    4. Rendimiento: list_sessions < 50ms / search < 100ms en DB crecida (índices + FTS5)
+    5. Sin regresión TUI: btop/nvim en sesión restaurada se ven igual que en vivo
+    6. Tests: ✅ cargo test 10 verdes + vitest 68 verdes; builds sin DATABASE_URL (offline sqlx)
+  - Files: — (verificación por Felipe; criterio 6 ya validado)
 
 ## Fase 4: theming ryoku (pendiente)
 ## Fase 5: ai opencode (pendiente)
