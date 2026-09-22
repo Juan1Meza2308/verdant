@@ -2,7 +2,7 @@
 //! restaurada) sobre el shell vivo. Muestra sesiones recientes y accesos
 //! rápidos; cualquier tecla la descarta y devuelve el foco al terminal.
 
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { recentSessions, type RecentSession } from "../lib/sessions";
 import "./StartScreen.css";
 
@@ -49,7 +49,7 @@ function relativeTime(iso: string): string {
   return new Date(then).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }
 
-export function StartScreen({ onAttach, onOpenShell }: StartScreenProps) {
+export const StartScreen = memo(function StartScreen({ onAttach, onOpenShell }: StartScreenProps) {
   const [recent, setRecent] = useState<RecentSession[] | null>(null);
   const [selected, setSelected] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -140,6 +140,8 @@ export function StartScreen({ onAttach, onOpenShell }: StartScreenProps) {
                 className={`start-card${index === selected ? " selected" : ""}`}
                 onClick={() => onAttach(s.id)}
                 onMouseEnter={() => setSelected(index)}
+                tabIndex={index === selected ? 0 : -1}
+                aria-selected={index === selected}
                 aria-label={`Abrir sesión ${s.id}: ${recentLabel(s)}`}
               >
                 <span className="start-card-command">{recentLabel(s)}</span>
@@ -171,4 +173,4 @@ export function StartScreen({ onAttach, onOpenShell }: StartScreenProps) {
       </footer>
     </div>
   );
-}
+});

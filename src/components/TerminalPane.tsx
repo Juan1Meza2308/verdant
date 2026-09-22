@@ -129,6 +129,12 @@ export function TerminalPane({
   }, []);
   dismissHomeRef.current = dismissHome;
 
+  /** Handler estable para que StartScreen (memo) no re-renderice con cada render. */
+  const handleAttachSession = useCallback(
+    (id: number) => onAttachSession?.(id),
+    [onAttachSession],
+  );
+
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -708,7 +714,7 @@ export function TerminalPane({
       <div ref={containerRef} className="terminal-host" />
       {showHome && (
         <StartScreen
-          onAttach={(id) => onAttachSession?.(id)}
+          onAttach={handleAttachSession}
           onOpenShell={dismissHome}
         />
       )}

@@ -18,6 +18,8 @@
   overflow: hidden;
   outline: none;
   animation: start-in 220ms var(--v-ease-out);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 @keyframes start-in {
@@ -113,6 +115,11 @@
   box-shadow:
     inset 0 0 0 1px color-mix(in srgb, var(--v-accent) 30%, transparent),
     0 10px 26px -14px rgba(0, 0, 0, 0.8);
+}
+
+.start-card:active {
+  transform: translateY(0) scale(0.98);
+  transition-duration: 60ms;
 }
 
 .start-card-command {

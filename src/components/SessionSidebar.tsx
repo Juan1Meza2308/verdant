@@ -34,10 +34,20 @@ export function SessionSidebar({ onAttach, onClose }: SessionSidebarProps) {
         if (active) setSessions(list);
       });
     };
-    load();
+    // El primer listado se difiere a un idle callback para no competir con la
+    // animación de arranque y el render del shell (perf).
+    let idleHandle: number | null = null;
+    if (typeof requestIdleCallback === "function") {
+      idleHandle = requestIdleCallback(load, { timeout: 1000 });
+    } else {
+      load();
+    }
     const timer = setInterval(load, SIDEBAR_REFRESH_MS);
     return () => {
       active = false;
+      if (idleHandle !== null && typeof cancelIdleCallback === "function") {
+        cancelIdleCallback(idleHandle);
+      }
       clearInterval(timer);
     };
   }, []);
