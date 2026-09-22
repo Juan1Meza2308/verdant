@@ -1,9 +1,27 @@
 //! Backend de sessions: comandos Tauri para persistir y buscar sesiones PTY.
 
+use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
 use serde::{Deserialize, Serialize};
 use sqlx::Row;
-use tauri::State;
+use tauri::{AppHandle, Emitter, State};
 use tracing;
+
+/// Evento broadcast (hybrid attach): el writer publica output/bloques/cierre
+/// y los panes "follower" (misma session_id, modo lectura) lo aplican en vivo.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionUpdate {
+    pub session_id: i64,
+    /// "output" | "block" | "close"
+    pub kind: String,
+    pub block_seq: i64,
+    /// Bytes crudos en base64 (solo kind="output").
+    pub data: Option<String>,
+    pub start_row: Option<i64>,
+    pub end_row: Option<i64>,
+    pub command: Option<String>,
+    pub exit_code: Option<i64>,
+}
 
 /// Sesión completa (para listado y restore).
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -162,6 +180,7 @@ pub async fn create_session(
 /// Añade un bloque (marker C) a la sesión.
 #[tauri::command]
 pub async fn append_block(
+    app: AppHandle,
     state: State<'_, crate::commands::AppState>,
     session_id: i64,
     seq: i64,
@@ -191,6 +210,20 @@ pub async fn append_block(
     .map_err(|e| format!("append_block: {e}"))?
     .last_insert_rowid();
 
+    let _ = app.emit(
+        "session_update",
+        SessionUpdate {
+            session_id,
+            kind: "block".into(),
+            block_seq: seq,
+            data: None,
+            start_row: Some(start_row),
+            end_row,
+            command: Some(command),
+            exit_code: None,
+        },
+    );
+
     tracing::info!("[session] append_block session={} block={} seq={}", session_id, block_id, seq);
     Ok(block_id)
 }
@@ -198,6 +231,7 @@ pub async fn append_block(
 /// Actualiza command + end_row de un bloque (marker C: comando terminado).
 #[tauri::command]
 pub async fn update_block(
+    app: AppHandle,
     state: State<'_, crate::commands::AppState>,
     session_id: i64,
     seq: i64,
@@ -217,12 +251,27 @@ pub async fn update_block(
     .execute(pool)
     .await
     .map_err(|e| format!("update_block: {e}"))?;
+
+    let _ = app.emit(
+        "session_update",
+        SessionUpdate {
+            session_id,
+            kind: "block".into(),
+            block_seq: seq,
+            data: None,
+            start_row: None,
+            end_row: Some(end_row),
+            command: Some(command),
+            exit_code: None,
+        },
+    );
     Ok(())
 }
 
 /// Añade chunk de output a un bloque (batch desde terminal-data).
 #[tauri::command]
 pub async fn append_output(
+    app: AppHandle,
     state: State<'_, crate::commands::AppState>,
     session_id: i64,
     block_seq: i64,
@@ -288,12 +337,29 @@ pub async fn append_output(
     .await
     .map_err(|e| format!("append_output fts: {e}"))?;
 
+    // Hybrid attach: broadcast a los panes follower de esta sesión.
+    let b64 = B64.encode(&data);
+    let _ = app.emit(
+        "session_update",
+        SessionUpdate {
+            session_id,
+            kind: "output".into(),
+            block_seq,
+            data: Some(b64),
+            start_row: None,
+            end_row: None,
+            command: None,
+            exit_code: None,
+        },
+    );
+
     Ok(())
 }
 
 /// Cierra la sesión (exit code).
 #[tauri::command]
 pub async fn close_session(
+    app: AppHandle,
     state: State<'_, crate::commands::AppState>,
     session_id: i64,
     exit_code: Option<i64>,
@@ -319,6 +385,20 @@ pub async fn close_session(
     .execute(pool)
     .await
     .map_err(|e| format!("close_session blocks: {e}"))?;
+
+    let _ = app.emit(
+        "session_update",
+        SessionUpdate {
+            session_id,
+            kind: "close".into(),
+            block_seq: 0,
+            data: None,
+            start_row: None,
+            end_row: None,
+            command: None,
+            exit_code,
+        },
+    );
 
     tracing::info!("[session] closed id={} exit_code={:?}", session_id, exit_code);
     Ok(())

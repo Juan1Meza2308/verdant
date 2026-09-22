@@ -43,6 +43,24 @@ interface TerminalExitEvent {
   exit_code: number | null;
 }
 
+interface SessionUpdateEvent {
+  session_id: number;
+  kind: "output" | "block" | "close";
+  block_seq: number;
+  data?: string;
+  start_row?: number;
+  end_row?: number;
+  command?: string;
+  exit_code?: number | null;
+}
+
+/**
+ * Sesiones que esta instancia está escribiendo en DB. La primera pane que
+ * restaura una sesión es writer; las siguientes (misma session_id) pasan a
+ * modo lectura y siguen el contenido en vivo por el evento session_update.
+ */
+const writerSessions = new Set<number>();
+
 export interface VerdantConfig {
   shell: string;
   shellArgs: string[];
@@ -82,6 +100,10 @@ export function TerminalPane({
   const blockSeqRef = useRef<number>(0);
   const outputBufferRef = useRef<number[]>([]);
   const outputFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** false = pane follower (lectura) en hybrid attach; no escribe en DB. */
+  const isWriterRef = useRef(true);
+  /** Si esta pane es writer de una sesión restaurada, libera el claim al cerrar. */
+  const writerClaimRef = useRef<number | null>(null);
   const activeRef = useRef(active);
   activeRef.current = active;
   const [searching, setSearching] = useState(false);
@@ -142,6 +164,11 @@ export function TerminalPane({
       const overlay = new BlockOverlay(terminal);
       overlayRef.current = overlay;
 
+      // Hybrid attach: la PRIMERA pane que restaura una sesión es writer;
+      // las siguientes (misma session_id) son lectura y siguen por session_update.
+      const isFollower = restoreSession !== undefined && writerSessions.has(restoreSession);
+      isWriterRef.current = !isFollower;
+
       // Modo restore: reanudar el historial ANTES de spawnear, para que el
       // prompt nuevo aparezca debajo del contenido restaurado (sin intercalar).
       if (restoreSession !== undefined) {
@@ -183,27 +210,39 @@ export function TerminalPane({
         blockSeqRef.current = maxSeq;
       }
 
-      const id = await invoke<number>("spawn_terminal", {
-        cols: terminal.cols,
-        rows: terminal.rows,
-      });
-      if (disposed) {
-        void invoke("close_terminal", { id });
-        return;
-      }
-      ptyId = id;
-
-      if (restoreSession === undefined) {
-        // Crear sesión persistente en DB (Fase 3)
-        const cwd = await invoke<string>("get_cwd").catch(() => "~");
-        const sessionDbId = await invoke<number>("create_session", {
+      if (isFollower) {
+        // Vista en vivo: sin PTY propio; los cambios llegan por session_update
+        // (handleMarker y el flush de output están bloqueados por isWriterRef).
+        terminal.write(
+          `\r\n\x1b[90m[verdant] sesión #${restoreSession} — modo lectura (attach)\x1b[0m\r\n`,
+        );
+      } else {
+        if (restoreSession !== undefined) {
+          writerSessions.add(restoreSession);
+          writerClaimRef.current = restoreSession;
+        }
+        const id = await invoke<number>("spawn_terminal", {
           cols: terminal.cols,
           rows: terminal.rows,
-          cwd,
-          shell: config.shell,
         });
-        sessionDbIdRef.current = sessionDbId;
-        blockSeqRef.current = 0;
+        if (disposed) {
+          void invoke("close_terminal", { id });
+          return;
+        }
+        ptyId = id;
+
+        if (restoreSession === undefined) {
+          // Crear sesión persistente en DB (Fase 3)
+          const cwd = await invoke<string>("get_cwd").catch(() => "~");
+          const sessionDbId = await invoke<number>("create_session", {
+            cols: terminal.cols,
+            rows: terminal.rows,
+            cwd,
+            shell: config.shell,
+          });
+          sessionDbIdRef.current = sessionDbId;
+          blockSeqRef.current = 0;
+        }
       }
 
       // Pipeline OSC 133: bytes → texto (streaming) → segmentos → escrituras
@@ -247,7 +286,7 @@ export function TerminalPane({
           // Fase 3: insertar bloque en DB (comando aún vacío; se completa en C).
           // El row debe existir antes de su output para poder adjuntar chunks.
           const dbId = sessionDbIdRef.current;
-          if (dbId !== null) {
+          if (isWriterRef.current && dbId !== null) {
             blockSeqRef.current += 1;
             const seq = blockSeqRef.current;
             void invoke("append_block", {
@@ -268,7 +307,7 @@ export function TerminalPane({
             overlay.updateBlock(current);
             // Fase 3: completar command + end_row del bloque abierto.
             const dbId = sessionDbIdRef.current;
-            if (dbId !== null) {
+            if (isWriterRef.current && dbId !== null) {
               const seq = blockSeqRef.current;
               void invoke("update_block", {
                 session_id: dbId,
@@ -342,23 +381,25 @@ export function TerminalPane({
 
       disposers.push(
         terminal.onData((data) => {
-          void invoke("write_to_pty", { id, data });
+          if (ptyId === null) return; // follower: lectura, sin PTY propio
+          void invoke("write_to_pty", { id: ptyId, data });
         }).dispose,
         terminal.onResize((size) => {
           overlay.rebuildAll();
-          void invoke("resize_terminal", { id, cols: size.cols, rows: size.rows });
+          if (ptyId === null) return;
+          void invoke("resize_terminal", { id: ptyId, cols: size.cols, rows: size.rows });
         }).dispose,
       );
 
       const unData = await listen<TerminalDataEvent>("terminal-data", (event) => {
-        if (event.payload.id === id) {
+        if (ptyId !== null && event.payload.id === ptyId) {
           // UTF-8 rematado (un multibyte puede llegar partido entre chunks).
           const text = decoder.decode(base64ToBytes(event.payload.data), { stream: true });
           pushChunk(text);
 
           // Fase 3: persistir output en DB (throttle 200ms)
           const dbId = sessionDbIdRef.current;
-          if (dbId !== null && blockSeqRef.current > 0) {
+          if (isWriterRef.current && dbId !== null && blockSeqRef.current > 0) {
             const data = base64ToBytes(event.payload.data);
             outputBufferRef.current.push(...data);
             if (!outputFlushTimerRef.current) {
@@ -379,13 +420,14 @@ export function TerminalPane({
         }
       });
       const unExit = await listen<TerminalExitEvent>("terminal-exit", (event) => {
-        if (event.payload.id === id) {
+        if (ptyId !== null && event.payload.id === ptyId) {
           terminal.write(
             `\r\n\x1b[90m[verdant] proceso terminado (código ${event.payload.exit_code ?? "?"})\x1b[0m\r\n`,
           );
-          // Fase 3: cerrar sesión en DB
+          // Fase 3: cerrar sesión en DB (solo el writer; los followers ya ven
+          // el cierre por session_update).
           const dbId = sessionDbIdRef.current;
-          if (dbId !== null) {
+          if (isWriterRef.current && dbId !== null) {
             // Flush any pending output
             if (outputBufferRef.current.length > 0) {
               const buffered = [...outputBufferRef.current];
@@ -411,6 +453,26 @@ export function TerminalPane({
       });
       disposers.push(unData, unExit);
 
+      // Hybrid attach: los followers aplican en vivo los cambios del writer.
+      // (Las escrituras del writer no pasan por aquí: isWriterRef filtra.)
+      const unSessionUpdate = await listen<SessionUpdateEvent>("session_update", (event) => {
+        const dbId = sessionDbIdRef.current;
+        if (dbId === null || dbId !== event.payload.session_id) return;
+        if (isWriterRef.current) return;
+        if (event.payload.kind === "output" && event.payload.data) {
+          // Mismo pipeline que el stream vivo: el texto incluye los marcadores
+          // OSC 133, así que modelo y decorations se actualizan solos.
+          const text = decoder.decode(base64ToBytes(event.payload.data), { stream: true });
+          pushChunk(text);
+        } else if (event.payload.kind === "close") {
+          decoder.decode(); // descartar bytes UTF-8 pendientes
+          terminal.write(
+            `\r\n\x1b[90m[verdant] sesión cerrada (código ${event.payload.exit_code ?? "?"})\x1b[0m\r\n`,
+          );
+        }
+      });
+      disposers.push(unSessionUpdate);
+
       terminal.focus();
     };
 
@@ -419,6 +481,11 @@ export function TerminalPane({
     return () => {
       disposed = true;
       disposers.forEach((dispose) => dispose());
+      // Liberar el claim de writer para que otra pane pueda tomar el rol.
+      if (writerClaimRef.current !== null) {
+        writerSessions.delete(writerClaimRef.current);
+        writerClaimRef.current = null;
+      }
       if (outputFlushTimerRef.current) {
         clearTimeout(outputFlushTimerRef.current);
         outputFlushTimerRef.current = null;

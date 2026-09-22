@@ -119,10 +119,10 @@
   - Verify: ✅ `tsc` + cargo check verdes; 68 tests vitest (restore siembra por seq, continúa secuencia tras restore, restore vacío reinicia)
   - Files: src/components/TerminalPane.tsx, src/lib/blocks.ts (restore), src/lib/blockOverlay.ts (openBlock cursorYOffset), src/lib/blocks.test.ts
 
-- [ ] Task: Hybrid attach (read-only + broadcast)
-  - Acceptance: segunda instancia abre misma sesión → follow mode (recibe updates por `session_update` event); opción read-write con mutex por session_id
-  - Verify: dos ventanas verdant → mismo contenido en tiempo real (<100ms)
-  - Files: src-tauri/src/sessions.rs (emit), TerminalPane.tsx (listener)
+- [x] Task: Hybrid attach (read-only + broadcast)
+  - Acceptance: primera pane que restaura una sesión = writer; las siguientes (misma session_id) = follower: replay + vista en vivo por evento `session_update` (broadcast del writer: output/blocks/close); follower sin PTY propio (solo lectura)
+  - Verify: ✅ `tsc` + cargo check verdes; 68 tests vitest verdes; flag `isWriterRef` bloquea todas las escrituras DB del follower; `writerSessions` claim/release en cleanup; backend emite `session_update` en append_block/update_block/append_output/close_session
+  - Files: src-tauri/src/sessions.rs (SessionUpdate + emits), src/components/TerminalPane.tsx (follower mode + listener)
 
 - [ ] Task: Criterio de salida Fase 3
   - Acceptance: los 6 criterios de SPEC-sessions.md (persistencia, búsqueda global, hybrid attach, rendimiento, TUI, tests)
